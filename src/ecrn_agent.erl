@@ -13,7 +13,8 @@
 	 cancel/1,
 	 get_datetime/1,
 	 set_datetime/3,
-	 recalculate/1]).
+	 recalculate/1,
+	 validate/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -72,10 +73,12 @@ validate(Spec) ->
 		   alarm_ref=undefined},
     {DateTime, Actual} = ecrn_control:datetime(),
     NewState = set_internal_time(State, DateTime, Actual),
-    case until_next_milliseconds(NewState, {Spec, undefined}) of
-	{ok, Millis} when is_integer(Millis) ->
-	    valid;
-	{error, _}  ->
+    try
+	until_next_time(NewState, {Spec, undefined}),
+	valid
+    catch
+	_Error:_Reason ->
+	    erlang:display(erlang:get_stacktrace()),
 	    invalid
     end.
 
@@ -254,12 +257,13 @@ normalize_seconds(State, Seconds) ->
 	Value when Value >= 0 ->
 	    Value;
 	_ ->
+	    erlang:display(erlang:get_stacktrace()),
 	    throw(invalid_once_exception)
     end.
 
 %% @doc Calculates the duration in seconds until the next time
 %% a job is to be run.
--spec until_next_seconds(record(state), job()) -> seconds().
+-spec until_next_time(record(state), job()) -> seconds().
 until_next_time(_State, {{once, Seconds}, _What}) when is_integer(Seconds) ->
     Seconds;
 until_next_time(State, {{once, {H, M, S}}, _What})
@@ -271,7 +275,8 @@ until_next_time(State, {{daily, Period}, _What}) ->
     until_next_daytime(State, Period);
 until_next_time(State, {{weekly, DoW, Period}, _What}) ->
     OnDay = resolve_dow(DoW),
-    Today = calendar:day_of_the_week(current_date(State)),
+    {Date, _} = current_date(State),
+    Today = calendar:day_of_the_week(Date),
     case Today of
 	OnDay ->
 	    until_next_daytime_or_days_from_now(State, Period, 7);
@@ -281,7 +286,7 @@ until_next_time(State, {{weekly, DoW, Period}, _What}) ->
 	    until_days_from_now(State, Period, (OnDay+7) - Today)
     end;
 until_next_time(State, {{monthly, DoM, Period}, _What}) ->
-    {ThisYear, ThisMonth, Today} = current_date(State),
+    {{ThisYear, ThisMonth, Today}, _} = current_date(State),
     {NextYear, NextMonth} =
 	case ThisMonth of
 	    12 ->
@@ -364,19 +369,19 @@ resolve_period0(Period, Time, EndTime, Acc) ->
 %% @spec resolve_time(time()) -> seconds()
 %% @doc Returns seconds past midnight for a given time.
 
-resolve_time({H, M, S}) when is_integer(S) ->
+resolve_time({H, M, S}) when H < 24, M < 60, S < 60  ->
     S + M * 60 + H * 3600;
-resolve_time({H, M, S, X}) when is_atom(X) ->
+resolve_time({H, M, S, X}) when  H < 24, M < 60, S < 60, is_atom(X) ->
     resolve_time({H, X}) + M * 60 + S;
-resolve_time({H, M, X}) when is_atom(X) ->
+resolve_time({H, M, X}) when  H < 24, M < 60, is_atom(X) ->
     resolve_time({H, X}) + M * 60;
 resolve_time({12, am}) ->
     0;
-resolve_time({H,  am}) ->
+resolve_time({H,  am}) when H < 12 ->
     H * 3600;
 resolve_time({12, pm}) ->
     12 * 3600;
-resolve_time({H,  pm}) ->
+resolve_time({H,  pm}) when H < 12->
     (H + 12) * 3600.
 
 %% @spec resolve_dur(duration()) -> seconds()

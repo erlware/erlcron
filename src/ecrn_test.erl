@@ -3,6 +3,8 @@
 %%%-------------------------------------------------------------------
 -module(ecrn_test).
 
+-compile(export_all).
+
 -include_lib("eunit/include/eunit.hrl").
 
 %% -- tests ---------------------------------------------------------------------
@@ -18,7 +20,8 @@ cron_test_() ->
 	     fun travel_back_in_time_test/1,
 	     fun cancel_alarm_test/1,
 	     fun big_time_jump_test/1,
-	     fun cron_test/1]}}.
+	     fun cron_test/1,
+	     fun validation_test/1]}}.
 
 
 
@@ -145,6 +148,22 @@ cron_test(_) ->
 		     after
 			 2500 -> timeout
 		     end).
+
+validation_test(_) ->
+    ?assertMatch(valid, ecrn_agent:validate({once, {3, 30, pm}})),
+    ?assertMatch(valid, ecrn_agent:validate({once, 3600})),
+    ?assertMatch(valid, ecrn_agent:validate({daily, {every, {23, sec}, {between, {3, pm}, {3, 30, pm}}}})),
+    ?assertMatch(valid, ecrn_agent:validate({daily, {3, 30, pm}})),
+    ?assertMatch(valid, ecrn_agent:validate({daily, [{1, 10, am}, {1, 07, 30, am}]})),
+    ?assertMatch(valid, ecrn_agent:validate({weekly, thu, {2, am}})),
+    ?assertMatch(valid, ecrn_agent:validate({weekly, wed, {2, am}})),
+    ?assertMatch(valid, ecrn_agent:validate({monthly, 1, {2, am}})),
+    ?assertMatch(valid, ecrn_agent:validate({monthly, 4, {2, am}})),
+    ?assertMatch(invalid, ecrn_agent:validate({once, fubar})),
+    ?assertMatch(invalid, ecrn_agent:validate({daily, {55, 22, am}})),
+    ?assertMatch(invalid, ecrn_agent:validate({monthly, 65, {55, am}})).
+
+
 
 %% -- helpers -------------------------------------------------------------------
 
