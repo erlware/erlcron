@@ -4,22 +4,30 @@
 %%%----------------------------------------------------------------,
 -module(erlcron).
 
--export([cron/1,
+-export([validate/1,
+	 cron/1,
 	 at/2,
 	 once/2,
 	 cancel/1,
 	 datetime/0,
 	 set_datetime/1,
-	 set_datetime/2,
 	 multi_set_datetime/1,
-	 multi_set_datetime/2,
-	 multi_set_datetime/3]).
+	 multi_set_datetime/2]).
 
 -include_lib("erlcron/include/erlcron.hrl").
 
 %%%===================================================================
 %%% API
 %%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc
+%%  Check that the spec specified is valid or invalid
+%% @end
+%%--------------------------------------------------------------------
+-spec validate(run_when()) -> valid | invalid.
+validate(Spec) ->
+    ecrn_agent:validate(Spec).
 
 %%--------------------------------------------------------------------
 %% @doc
