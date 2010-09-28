@@ -61,6 +61,25 @@ set_datetime(Pid, DateTime, Actual) ->
 recalculate(Pid) ->
     gen_server:cast(Pid, recalculate).
 
+%%--------------------------------------------------------------------
+%% @doc
+%%  Validate that a run_when spec specified is correct.
+%% @end
+%%--------------------------------------------------------------------
+-spec validate(run_when()) -> valid | invalid.
+validate(Spec) ->
+    State = #state{job=undefined,
+		   alarm_ref=undefined},
+    {DateTime, Actual} = ecrn_control:datetime(),
+    NewState = set_internal_time(State, DateTime, Actual),
+    case until_next_milliseconds(NewState, {Spec, undefined}) of
+	{ok, Millis} when is_integer(Millis) ->
+	    valid;
+	{error, _}  ->
+	    invalid
+    end.
+
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -218,6 +237,9 @@ current_date(State) ->
 						 State#state.referenced_seconds)).
 
 
+%% @doc Calculates the duration in milliseconds until the next time
+%% a job is to be run.
+-spec until_next_milliseconds(record(state), job()) -> seconds().
 until_next_milliseconds(State, Job) ->
     try
 	Millis = until_next_time(State, Job) * ?MILLISECONDS,
@@ -235,9 +257,9 @@ normalize_seconds(State, Seconds) ->
 	    throw(invalid_once_exception)
     end.
 
-%% @spec until_next_seconds(job()) -> seconds()
 %% @doc Calculates the duration in seconds until the next time
 %% a job is to be run.
+-spec until_next_seconds(record(state), job()) -> seconds().
 until_next_time(_State, {{once, Seconds}, _What}) when is_integer(Seconds) ->
     Seconds;
 until_next_time(State, {{once, {H, M, S}}, _What})
