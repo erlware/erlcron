@@ -14,7 +14,41 @@
 	 multi_set_datetime/1,
 	 multi_set_datetime/2]).
 
--include_lib("erlcron/include/erlcron.hrl").
+-export_type([job/0,
+	      job_ref/0,
+	      run_when/0,
+	      callable/0,
+	      dow/0,
+	      dom/0,
+	      period/0,
+	      duration/0,
+	      constraint/0,
+	      cron_time/0,
+	      datetime/0,
+	      time/0,
+	      date/0,
+	      seconds/0]).
+
+-type seconds()    :: integer().
+-type date()       :: {integer(), integer(), integer()}.
+-type time()       :: {integer(), integer(), integer()}.
+-type datetime()   :: {date(), time()}.
+
+-type cron_time()   :: {integer(), am | pm} | {integer(), integer(), am | pm}.
+-type constraint() :: {between, cron_time(), cron_time()}.
+-type duration()   :: {integer(), hr | min | sec}.
+-type period()     :: cron_time() | [cron_time()] | {every, duration(), constraint()}.
+-type dom()        :: integer().
+-type dow()        :: mon | tue | wed | thu | fri | sat | sun.
+-type callable()   :: mfa() | function().
+-type run_when()   :: {once, seconds()}
+                      | {daily, period()}
+                      | {weekly, dow(), period()}
+                      | {monthly, dom(), period()}.
+
+-type  job()      :: {run_when(), callable()}.
+-opaque job_ref()   :: {integer(), reference()}.
+
 
 %%%===================================================================
 %%% API

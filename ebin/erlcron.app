@@ -5,7 +5,7 @@
   [{description,
     "Erlang Implementation of cron"},
 
-   {vsn, "0.1"},
+   {vsn, "0.2"},
 
    {modules,
     [erlcron,
