@@ -20,7 +20,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
--include_lib("erlcron/include/erlcron.hrl").
 -include("erlcron-internal.hrl").
 
 -record(state, {job,
@@ -42,11 +41,11 @@
 %% Starts the server with the apropriate job and the appropriate ref
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(job_ref(), job()) -> ok.
+-spec start_link(erlcron:job_ref(), erlcron:job()) -> ok.
 start_link(JobRef, Job) ->
     gen_server:start_link(?MODULE, [JobRef, Job], []).
 
--spec get_datetime(pid()) -> datetime().
+-spec get_datetime(pid()) -> erlcron:datetime().
 get_datetime(Pid) ->
     gen_server:call(Pid, get_datetime).
 
@@ -54,7 +53,7 @@ get_datetime(Pid) ->
 cancel(Pid) ->
     gen_server:cast(Pid, shutdown).
 
--spec set_datetime(pid(), datetime(), datetime()) -> ok.
+-spec set_datetime(pid(), erlcron:datetime(), erlcron:datetime()) -> ok.
 set_datetime(Pid, DateTime, Actual) ->
     gen_server:cast(Pid, {set_datetime, DateTime, Actual}).
 
@@ -67,7 +66,7 @@ recalculate(Pid) ->
 %%  Validate that a run_when spec specified is correct.
 %% @end
 %%--------------------------------------------------------------------
--spec validate(run_when()) -> valid | invalid.
+-spec validate(erlcron:run_when()) -> valid | invalid.
 validate(Spec) ->
     State = #state{job=undefined,
 		   alarm_ref=undefined},
@@ -226,7 +225,7 @@ do_job_run(State, {_, {M, F, A}}) when is_record(State, state) ->
     proc_lib:spawn(M, F, A).
 
 %% @doc Returns the current time, in seconds past midnight.
--spec current_time(record(state)) -> seconds().
+-spec current_time(record(state)) -> erlcron:seconds().
 current_time(State) ->
     {_, {H,M,S}} = current_date(State),
     S + M * 60 + H * 3600.
@@ -242,7 +241,7 @@ current_date(State) ->
 
 %% @doc Calculates the duration in milliseconds until the next time
 %% a job is to be run.
--spec until_next_milliseconds(record(state), job()) -> seconds().
+-spec until_next_milliseconds(record(state), erlcron:job()) -> erlcron:seconds().
 until_next_milliseconds(State, Job) ->
     try
 	Millis = until_next_time(State, Job) * ?MILLISECONDS,
@@ -263,7 +262,7 @@ normalize_seconds(State, Seconds) ->
 
 %% @doc Calculates the duration in seconds until the next time
 %% a job is to be run.
--spec until_next_time(record(state), job()) -> seconds().
+-spec until_next_time(record(state), erlcron:job()) -> erlcron:seconds().
 until_next_time(_State, {{once, Seconds}, _What}) when is_integer(Seconds) ->
     Seconds;
 until_next_time(State, {{once, {H, M, S}}, _What})
