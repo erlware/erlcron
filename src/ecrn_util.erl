@@ -13,7 +13,7 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
--spec epoch_seconds() -> erlcron:seconds().
+-spec epoch_seconds/0 :: () -> erlcron:seconds().
 epoch_seconds() ->
     {Megasecs, Secs, Microsecs} = erlang:now(),
     erlang:trunc((Megasecs * 1000000) + Secs + (Microsecs / 1000000)).
