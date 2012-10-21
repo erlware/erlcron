@@ -30,13 +30,7 @@
 %%% API
 %%%===================================================================
 
-%%--------------------------------------------------------------------
-%% @doc
-%% Starts the server
-%%
-%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
-%% @end
-%%--------------------------------------------------------------------
+-spec start_link() -> {ok, Pid::pid()} | ignore | {error, Error::term()}.
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
@@ -45,7 +39,7 @@ start_link() ->
 %%   Register an arbitrary value with the system, under a set of keys
 %% @end
 %%--------------------------------------------------------------------
--spec register(term() | [term()], term()) -> ok.
+-spec register(term() | [term()], term()) -> ok | {discarded_keys, [term()]}.
 register(Keys, Body) when is_list(Keys) ->
     gen_server:call(?SERVER, {register, Keys, Body});
 register(Key, Body)  ->
