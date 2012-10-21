@@ -160,8 +160,6 @@ validation_test(_) ->
     ?assertMatch(invalid, ecrn_agent:validate({daily, {55, 22, am}})),
     ?assertMatch(invalid, ecrn_agent:validate({monthly, 65, {55, am}})).
 
-
-
 %%%===================================================================
 %%% Internal Functions
 %%%===================================================================
