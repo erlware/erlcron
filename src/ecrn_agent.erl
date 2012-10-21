@@ -33,6 +33,12 @@
 -define(WAIT_BEFORE_RUN, 2000).
 
 %%%===================================================================
+%%% Types
+%%%===================================================================
+
+-type state() :: record(state).
+
+%%%===================================================================
 %%% API
 %%%===================================================================
 
@@ -41,11 +47,12 @@
 %% Starts the server with the apropriate job and the appropriate ref
 %% @end
 %%--------------------------------------------------------------------
--spec start_link(erlcron:job_ref(), erlcron:job()) -> ok.
+-spec start_link(erlcron:job_ref(), erlcron:job()) ->
+                        ignore | {error, Reason::term()} | {ok, pid()}.
 start_link(JobRef, Job) ->
     gen_server:start_link(?MODULE, [JobRef, Job], []).
 
--spec get_datetime(pid()) -> erlcron:datetime().
+-spec get_datetime(pid()) -> calendar:datetime().
 get_datetime(Pid) ->
     gen_server:call(Pid, get_datetime).
 
@@ -53,7 +60,7 @@ get_datetime(Pid) ->
 cancel(Pid) ->
     gen_server:cast(Pid, shutdown).
 
--spec set_datetime(pid(), erlcron:datetime(), erlcron:datetime()) -> ok.
+-spec set_datetime(pid(), calendar:datetime(), erlcron:seconds()) -> ok.
 set_datetime(Pid, DateTime, Actual) ->
     gen_server:cast(Pid, {set_datetime, DateTime, Actual}).
 
@@ -241,7 +248,8 @@ current_date(State) ->
 
 %% @doc Calculates the duration in milliseconds until the next time
 %% a job is to be run.
--spec until_next_milliseconds(record(state), erlcron:job()) -> erlcron:seconds().
+-spec until_next_milliseconds(state(), erlcron:job()) ->
+                                     {ok, erlcron:seconds()} | {error, invalid_one_exception}.
 until_next_milliseconds(State, Job) ->
     try
 	Millis = until_next_time(State, Job) * ?MILLISECONDS,
@@ -262,7 +270,7 @@ normalize_seconds(State, Seconds) ->
 
 %% @doc Calculates the duration in seconds until the next time
 %% a job is to be run.
--spec until_next_time(record(state), erlcron:job()) -> erlcron:seconds().
+-spec until_next_time(state(), {erlcron:run_when(), term()}) -> erlcron:seconds().
 until_next_time(_State, {{once, Seconds}, _What}) when is_integer(Seconds) ->
     Seconds;
 until_next_time(State, {{once, {H, M, S}}, _What})
@@ -307,7 +315,7 @@ until_next_time(State, {{monthly, DoM, Period}, _What}) ->
 
 %% @doc Calculates the duration in seconds until the next time this
 %% period is to occur during the day.
-%% @spec until_next_daytime(period()) -> seconds()
+-spec until_next_daytime(erlcron:state(), erlcron:period()) -> erlcron:seconds().
 until_next_daytime(State, Period) ->
     StartTime = first_time(Period),
     EndTime = last_time(Period),
@@ -319,21 +327,19 @@ until_next_daytime(State, Period) ->
     end.
 
 
-%% @spec last_time(period()) -> seconds()
 %% @doc Calculates the last time in a given period.
-
+-spec last_time(erlcron:period()) -> erlcron:seconds().
 last_time(Period) ->
     hd(lists:reverse(lists:sort(resolve_period(Period)))).
 
-%% @spec first_time(period()) -> seconds()
-%% @doc Calculates the first time in a given period.
 
+%% @doc Calculates the first time in a given period.
+-spec first_time(erlcron:period()) -> erlcron:seconds().
 first_time(Period) ->
     hd(lists:sort(resolve_period(Period))).
 
-%% @spec next_time(period(), seconds()) -> seconds()
 %% @doc Calculates the first time in the given period after the given time.
-
+-spec next_time(erlcron:period(), erlcron:seconds()) -> erlcron:seconds().
 next_time(Period, Time) ->
     R = lists:sort(resolve_period(Period)),
     lists:foldl(fun(X, A) ->
@@ -345,9 +351,9 @@ next_time(Period, Time) ->
 			end
 		end, 24*3600, R).
 
-%% @spec resolve_period(period()) -> [seconds()]
-%% @doc Returns a list of times given a periodic specification.
 
+%% @doc Returns a list of times given a periodic specification.
+-spec resolve_period([erlcron:period()] | erlcron:period()) -> [erlcron:seconds()].
 resolve_period([]) ->
     [];
 resolve_period([H | T]) ->
@@ -365,9 +371,8 @@ resolve_period0(_, Time, EndTime, Acc) when Time >= EndTime ->
 resolve_period0(Period, Time, EndTime, Acc) ->
     resolve_period0(Period, Time + Period, EndTime, [Time | Acc]).
 
-%% @spec resolve_time(time()) -> seconds()
 %% @doc Returns seconds past midnight for a given time.
-
+-spec resolve_time(duration:time()) -> erlcron:seconds().
 resolve_time({H, M, S}) when H < 24, M < 60, S < 60  ->
     S + M * 60 + H * 3600;
 resolve_time({H, M, S, X}) when  H < 24, M < 60, S < 60, is_atom(X) ->
@@ -383,9 +388,8 @@ resolve_time({12, pm}) ->
 resolve_time({H,  pm}) when H < 12->
     (H + 12) * 3600.
 
-%% @spec resolve_dur(duration()) -> seconds()
 %% @doc Returns seconds for a given duration.
-
+-spec resolve_dur(erlcron:duration()) -> erlcron:seconds().
 resolve_dur({Hour, hr}) ->
     Hour * 3600;
 resolve_dur({Min, min}) ->
@@ -393,10 +397,9 @@ resolve_dur({Min, min}) ->
 resolve_dur({Sec, sec}) ->
     Sec.
 
-%% @spec resolve_dow(dow()) -> integer()
 %% @doc Returns the number of the given day of the week. See the calendar
 %% module for day numbers.
-
+-spec resolve_dow(erlang:dow()) -> integer().
 resolve_dow(mon) ->
     1;
 resolve_dow(tue) ->
@@ -412,25 +415,23 @@ resolve_dow(sat) ->
 resolve_dow(sun) ->
     7.
 
-%% @spec until_tomorrow(seconds()) -> seconds()
 %% @doc Calculates the duration in seconds until the given time occurs
 %% tomorrow.
-
+-spec until_tomorrow(state(), erlcron:seconds()) -> ercron:seconds().
 until_tomorrow(State, StartTime) ->
     (StartTime + 24*3600) - current_time(State).
 
-%% @spec until_days_from_now(period(), integer()) -> seconds()
-
 %% @doc Calculates the duration in seconds until the given period
 %% occurs several days from now.
-
+-spec until_days_from_now(state(), erlcron:period(), integer()) ->
+                                 erlcron:seconds().
 until_days_from_now(State, Period, Days) ->
     Days * 24 * 3600 + until_next_daytime(State, Period).
 
-%% @spec until_next_daytime_or_days_from_now(period(), integer()) -> seconds()
 %% @doc Calculates the duration in seconds until the given period
 %% occurs, which may be today or several days from now.
-
+-spec until_next_daytime_or_days_from_now(state(), erlcron:period(), integer()) ->
+                                                 erlcron:seconds().
 until_next_daytime_or_days_from_now(State, Period, Days) ->
     CurrentTime = current_time(State),
     case last_time(Period) of

@@ -42,6 +42,7 @@ start_link() ->
 cancel(AlarmRef) ->
     gen_server:call(?SERVER, {cancel, AlarmRef}).
 
+-spec datetime() -> {calendar:datetime(), erlcron:seconds()}.
 datetime() ->
     gen_server:call(?SERVER, get_datetime).
 
