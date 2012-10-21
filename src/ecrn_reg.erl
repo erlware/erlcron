@@ -1,24 +1,26 @@
+%%% @copyright Erlware, LLC. All Rights Reserved.
+%%%
+%%% This file is provided to you under the BSD License; you may not use
+%%% this file except in compliance with the License.  You may obtain a
+%%% copy of the License.
 %%%-------------------------------------------------------------------
-%%% @author Eric Merritt <emerritt@ecdmarket.com>
 %%% @doc
 %%%   This provides simple pid registration for the server.
-%%% @end
-%%%-------------------------------------------------------------------
 -module(ecrn_reg).
 
 -behaviour(gen_server).
 
 %% API
 -export([start_link/0,
-	 register/2,
-	 unregister/1,
-	 get/1,
-	 stop/0,
-	 get_all/0]).
+         register/2,
+         unregister/1,
+         get/1,
+         stop/0,
+         get_all/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+         terminate/2, code_change/3]).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -34,53 +36,36 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-%%--------------------------------------------------------------------
 %% @doc
 %%   Register an arbitrary value with the system, under a set of keys
-%% @end
-%%--------------------------------------------------------------------
 -spec register(term() | [term()], term()) -> ok | {discarded_keys, [term()]}.
 register(Keys, Body) when is_list(Keys) ->
     gen_server:call(?SERVER, {register, Keys, Body});
 register(Key, Body)  ->
     gen_server:call(?SERVER, {register, [Key], Body}).
 
-%%--------------------------------------------------------------------
 %% @doc
 %%   Remove the value registered under a que or set of keys
-%% @end
-%%--------------------------------------------------------------------
 -spec unregister(term() | [term()]) -> ok.
 unregister(Keys) when is_list(Keys) ->
     gen_server:call(?SERVER, {unregister, Keys});
 unregister(Key) ->
     gen_server:call(?SERVER, {unregister, [Key]}).
 
-%%--------------------------------------------------------------------
 %% @doc
 %%  Get a value buy key.
-%% @end
-%%--------------------------------------------------------------------
 -spec get(term()) -> {ok, term()} | undefined.
 get(Key) ->
     gen_server:call(?SERVER, {get, Key}).
 
-
-%%--------------------------------------------------------------------
 %% @doc
 %%  Get all the values.
-%% @end
-%%--------------------------------------------------------------------
 -spec get_all() -> [{term(), term()}].
 get_all() ->
     gen_server:call(?SERVER, get_all).
 
-
-%%--------------------------------------------------------------------
 %% @doc
 %%  stop this server
-%% @end
-%%--------------------------------------------------------------------
 -spec stop() -> ok.
 stop() ->
     gen_server:call(?SERVER, stop).
@@ -89,34 +74,11 @@ stop() ->
 %%% gen_server callbacks
 %%%===================================================================
 
-%%--------------------------------------------------------------------
 %% @private
-%% @doc
-%% Initiates the server
-%%
-%% @spec init(Args) -> {ok, State} |
-%%                     {ok, State, Timeout} |
-%%                     ignore |
-%%                     {stop, Reason}
-%% @end
-%%--------------------------------------------------------------------
 init([]) ->
     {ok, #state{registered=dict:new()}}.
 
-%%--------------------------------------------------------------------
 %% @private
-%% @doc
-%% Handling call messages
-%%
-%% @spec handle_call(Request, From, State) ->
-%%          <                         {reply, Reply, State} |
-%%                                   {reply, Reply, State, Timeout} |
-%%                                   {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, Reply, State} |
-%%                                   {stop, Reason, State}
-%% @end
-%%--------------------------------------------------------------------
 handle_call({register, Keys, Body}, _From, #state{registered=Dict}) ->
     {Result, Dict2} = add_for_keys(Keys, Body, Dict, ok),
     {reply, Result,  #state{registered=Dict2}};
@@ -131,54 +93,19 @@ handle_call(stop, _From, State) ->
 handle_call(get_all, _From, State = #state{registered=Dict}) ->
     {reply, dict:to_list(Dict), State}.
 
-%%--------------------------------------------------------------------
 %% @private
-%% @doc
-%% Handling cast messages
-%%
-%% @spec handle_cast(Msg, State) -> {noreply, State} |
-%%                                  {noreply, State, Timeout} |
-%%                                  {stop, Reason, State}
-%% @end
-%%--------------------------------------------------------------------
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-%%--------------------------------------------------------------------
 %% @private
-%% @doc
-%% Handling all non call/cast messages
-%%
-%% @spec handle_info(Info, State) -> {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, State}
-%% @end
-%%--------------------------------------------------------------------
 handle_info(_Info, State) ->
     {noreply, State}.
 
-%%--------------------------------------------------------------------
 %% @private
-%% @doc
-%% This function is called by a gen_server when it is about to
-%% terminate. It should be the opposite of Module:init/1 and do any
-%% necessary cleaning up. When it returns, the gen_server terminates
-%% with Reason. The return value is ignored.
-%%
-%% @spec terminate(Reason, State) -> void()
-%% @end
-%%--------------------------------------------------------------------
 terminate(_Reason, _State) ->
     ok.
 
-%%--------------------------------------------------------------------
 %% @private
-%% @doc
-%% Convert process state when code is changed
-%%
-%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
-%% @end
-%%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
@@ -192,11 +119,11 @@ discarded_keys(Key, ok) ->
 
 add_for_keys([Key | Rest], Body, Dict, Result) ->
     case dict:find(Key, Dict) of
-	error ->
-	    add_for_keys(Rest, Body, dict:append(Key, Body, Dict), Result);
-	_Value ->
-	    add_for_keys(Rest, Body, dict:append(Key, Body, Dict),
-			 discarded_keys(Key, Result))
+        error ->
+            add_for_keys(Rest, Body, dict:append(Key, Body, Dict), Result);
+        _Value ->
+            add_for_keys(Rest, Body, dict:append(Key, Body, Dict),
+                         discarded_keys(Key, Result))
     end;
 add_for_keys([], _, Dict, Result) ->
     {Result, Dict}.
@@ -208,10 +135,10 @@ remove_for_keys([],Dict) ->
 
 get_for_key(Key, Dict) ->
     case dict:find(Key, Dict) of
-	error ->
-	    undefined;
-	Value ->
-	    Value
+        error ->
+            undefined;
+        Value ->
+            Value
     end.
 
 %%%===================================================================
@@ -221,10 +148,10 @@ get_for_key(Key, Dict) ->
 generate_test_() ->
     {setup,
      fun () ->
-	     ecrn_reg:start_link()
+             ecrn_reg:start_link()
      end,
      fun (_) ->
-	     ecrn_reg:stop()
+             ecrn_reg:stop()
      end,
      {with,
       [fun general_tests/1]}}.
@@ -239,12 +166,4 @@ general_tests(_) ->
     ?assertMatch({ok, [boo2]}, ecrn_reg:get(c)),
     ?assertMatch({ok, [boo]}, ecrn_reg:get(b)),
     ?assertMatch({discarded_keys, [d, c]},
-     		 ecrn_reg:register([c, d], boo2)).
-
-
-
-
-
-
-
-
+                 ecrn_reg:register([c, d], boo2)).
