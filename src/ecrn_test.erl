@@ -1,29 +1,29 @@
-%%%-------------------------------------------------------------------
-%%% @author Eric Merritt <emerritt@ecdmarket.com>
-%%%-------------------------------------------------------------------
+%%% @copyright Erlware, LLC. All Rights Reserved.
+%%%
+%%% This file is provided to you under the BSD License; you may not use
+%%% this file except in compliance with the License.  You may obtain a
+%%% copy of the License.
 -module(ecrn_test).
-
--compile(export_all).
 
 -include_lib("eunit/include/eunit.hrl").
 
-%% -- tests ---------------------------------------------------------------------
+%%%===================================================================
+%%% Types
+%%%===================================================================
 cron_test_() ->
     {setup,
      fun() ->
-	     ecrn_app:manual_start()
+             ecrn_app:manual_start()
      end,
      fun(_) ->
-	     ecrn_app:manual_stop()
+             ecrn_app:manual_stop()
      end,
      {with, [fun set_alarm_test/1,
-	     fun travel_back_in_time_test/1,
-	     fun cancel_alarm_test/1,
-	     fun big_time_jump_test/1,
-	     fun cron_test/1,
-	     fun validation_test/1]}}.
-
-
+             fun travel_back_in_time_test/1,
+             fun cancel_alarm_test/1,
+             fun big_time_jump_test/1,
+             fun cron_test/1,
+             fun validation_test/1]}}.
 
 set_alarm_test(_) ->
     EpochDay = {2000,1,1},
@@ -35,28 +35,26 @@ set_alarm_test(_) ->
     Self = self(),
 
     erlcron:at(Alarm1TimeOfDay, fun(_, _) ->
-					  Self ! ack1
-				  end),
+                                          Self ! ack1
+                                  end),
     erlcron:at(Alarm2TimeOfDay, fun(_, _) ->
-					  Self ! ack2
-				  end),
+                                          Self ! ack2
+                                  end),
     erlcron:set_datetime({EpochDay, {8, 59, 59}}),
-%%
-%% The alarm should trigger this nearly immediately.
-%%
+
+    %% The alarm should trigger this nearly immediately.
     ?assertMatch(ok, receive
-			 ack1 -> ok
-		     after
-			 1500 -> timeout
-		     end),
-%%
-%% The alarm should trigger this 1 second later.
-%%
+                         ack1 -> ok
+                     after
+                         1500 -> timeout
+                     end),
+
+    %% The alarm should trigger this 1 second later.
     ?assertMatch(ok, receive
-			 ack2 -> ok
-		     after
-			 2500 -> timeout
-		     end).
+                         ack2 -> ok
+                     after
+                         2500 -> timeout
+                     end).
 
 cancel_alarm_test(_) ->
     Day = {2000,1,1},
@@ -66,17 +64,17 @@ cancel_alarm_test(_) ->
     Self = self(),
 
     Ref = erlcron:at(AlarmTimeOfDay, fun(_, _) ->
-					       Self ! ack
-				       end),
+                                               Self ! ack
+                                       end),
     erlcron:cancel(Ref),
     erlcron:set_datetime({Day, AlarmTimeOfDay}),
     ?assertMatch(ok, receive
-			 ack -> ack
-		     after
-%% There is no event-driven way to
-%% ensure we never receive an ack.
-			 125 -> ok
-		     end).
+                         ack -> ack
+                     after
+                         %% There is no event-driven way to
+                         %% ensure we never receive an ack.
+                         125 -> ok
+                     end).
 
 %% Time jumps ahead one day so we should see the alarms from both days.
 big_time_jump_test(_) ->
@@ -90,33 +88,33 @@ big_time_jump_test(_) ->
     Self = self(),
 
     erlcron:at(Alarm1TimeOfDay, fun(_, _) ->
-					  Self ! ack1
-				  end),
+                                          Self ! ack1
+                                  end),
     erlcron:at(Alarm2TimeOfDay, fun(_, _) ->
-					  Self ! ack2
-				  end),
+                                          Self ! ack2
+                                  end),
     erlcron:set_datetime({Day2, {9, 10, 0}}),
     ?assertMatch(ok, receive
-			 ack1 -> ok
-		     after
-			 1500 -> timeout
-		     end),
+                         ack1 -> ok
+                     after
+                         1500 -> timeout
+                     end),
     ?assertMatch(ok, receive
-			 ack2 -> ok
-		     after
-			 1500 -> timeout
-		     end),
+                         ack2 -> ok
+                     after
+                         1500 -> timeout
+                     end),
 
     ?assertMatch(ok, receive
-			 ack1 -> ok
-		     after
-			 1500 -> timeout
-		     end),
+                         ack1 -> ok
+                     after
+                         1500 -> timeout
+                     end),
     ?assertMatch(ok, receive
-			 ack2 -> ok
-		     after
-			 2500 -> timeout
-		     end).
+                         ack2 -> ok
+                     after
+                         2500 -> timeout
+                     end).
 
 travel_back_in_time_test(_) ->
     Seconds = seconds_now(),
@@ -124,8 +122,8 @@ travel_back_in_time_test(_) ->
     erlcron:set_datetime(Past),
     {ExpectedDateTime, _} = erlcron:datetime(),
     ExpectedSeconds = calendar:datetime_to_gregorian_seconds(ExpectedDateTime),
-    ?assert(ExpectedSeconds >= calendar:datetime_to_gregorian_seconds(Past)),
-    ?assert(ExpectedSeconds < Seconds).
+    ?assertMatch(true, ExpectedSeconds >= calendar:datetime_to_gregorian_seconds(Past)),
+    ?assertMatch(true, ExpectedSeconds < Seconds).
 
 
 %% Time jumps ahead one day so we should see the alarms from both days.
@@ -137,35 +135,35 @@ cron_test(_) ->
     Self = self(),
 
     Job = {{daily, {3, 30, pm}},
-	    fun(_, _) ->
-		    Self ! ack
-	    end},
+            fun(_, _) ->
+                    Self ! ack
+            end},
 
     erlcron:cron(Job),
 
     ?assertMatch(ok, receive
-			 ack -> ok
-		     after
-			 2500 -> timeout
-		     end).
+                         ack -> ok
+                     after
+                         2500 -> timeout
+                     end).
 
 validation_test(_) ->
     ?assertMatch(valid, ecrn_agent:validate({once, {3, 30, pm}})),
     ?assertMatch(valid, ecrn_agent:validate({once, 3600})),
-    ?assertMatch(valid, ecrn_agent:validate({daily, {every, {23, sec}, {between, {3, pm}, {3, 30, pm}}}})),
+    ?assertMatch(valid, ecrn_agent:validate({daily, {every, {23, sec},
+                                                     {between, {3, pm}, {3, 30, pm}}}})),
     ?assertMatch(valid, ecrn_agent:validate({daily, {3, 30, pm}})),
-    ?assertMatch(valid, ecrn_agent:validate({daily, [{1, 10, am}, {1, 07, 30, am}]})),
     ?assertMatch(valid, ecrn_agent:validate({weekly, thu, {2, am}})),
     ?assertMatch(valid, ecrn_agent:validate({weekly, wed, {2, am}})),
     ?assertMatch(valid, ecrn_agent:validate({monthly, 1, {2, am}})),
     ?assertMatch(valid, ecrn_agent:validate({monthly, 4, {2, am}})),
-    ?assertMatch(invalid, ecrn_agent:validate({once, fubar})),
     ?assertMatch(invalid, ecrn_agent:validate({daily, {55, 22, am}})),
     ?assertMatch(invalid, ecrn_agent:validate({monthly, 65, {55, am}})).
 
 
 
-%% -- helpers -------------------------------------------------------------------
-
+%%%===================================================================
+%%% Internal Functions
+%%%===================================================================
 seconds_now() ->
     calendar:datetime_to_gregorian_seconds(calendar:universal_time()).

@@ -1,2 +1,3 @@
 ebin/*.beam
 ebin/*.app
+.*
