@@ -1,8 +1,7 @@
 %%% @copyright Erlware, LLC. All Rights Reserved.
 %%%
 %%% This file is provided to you under the BSD License; you may not use
-%%% this file except in compliance with the License.  You may obtain a
-%%% copy of the License.
+%%% this file except in compliance with the License.
 %%%-------------------------------------------------------------------
 %%% @doc
 %%%   This provides simple pid registration for the server.
