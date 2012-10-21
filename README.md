@@ -1,4 +1,7 @@
-Erlcron provides testable cronish like functionality for Erlang
+Erlcron
+=======
+
+Erlcron provides testable cron like functionality for Erlang
 systems, with the ability to arbitrarily set the time and place along
 with fastforwarding through tests. See erlcron.erl for more
 documentation.
@@ -9,26 +12,20 @@ with the Erlang tradition.  It is not quite as expressive as cron but
 this can be compensated for by adding multiple jobs.
 
 No output is logged or mailed to anyone.  If you want output to be
-logged or mailed, you must explicitly specify that as part of the
-job.
+logged or mailed, you must explicitly specify that as part of the job.
 
 This does not poll the system on a minute-by-minute basis like cron
 does.  Each job is assigned to a single (Erlang) process.  The time
 until it is to run next is calculated, and the process sleeps for
 exactly that long.
 
-Unlike cron's one-minute resolution, crone
-has a 2-second resolution (actually 1 second, but after running the
-job, the process waits an extra second to avoid accidentally running it
-more than once.)
+Unlike cron's one-minute resolution, erlcron has a 2-second resolution
+(actually 1 second, but after running the job, the process waits an
+extra second to avoid accidentally running it more than once.)
 
-Because it does not wake up every minute, and because it does not
-have a fixed configuration file, crone must be stopped and
-restarted if the user wishes to change the scheduled jobs.
-
-It does not handle Daylight Savings Time (or other
-cases when the system clock is altered) gracefully, and it is recommended
-that it be stopped and restarted on such occasions.
+It does not handle Daylight Savings Time (or other cases when the
+system clock is altered) gracefully, and it is recommended that it be
+stopped and restarted on such occasions.
 
 Cron Job Description Examples:
 
@@ -54,7 +51,7 @@ Cron Job Description Examples:
      {io, fwrite, ["It's 2 Thursday morning~n"]}}
 
    {{weekly, wed, {2, am}},
-     {fuxbn() -> io:fwrite("It's 2 Wednesday morning~n") end}
+     {fun() -> io:fwrite("It's 2 Wednesday morning~n") end}
 
    {{weekly, fri, {2, am}},
      {io, fwrite, ["It's 2 Friday morning~n"]}}
@@ -68,46 +65,43 @@ Cron Job Description Examples:
 
 Adding a cron to the system:
 
-Job = {{weekly, thu, {2, am}},
-     {io, fwrite, ["It's 2 Thursday morning~n"]}}.
+    Job = {{weekly, thu, {2, am}},
+         {io, fwrite, ["It's 2 Thursday morning~n"]}}.
 
-erlcron:cron(Job).
+    erlcron:cron(Job).
 
 A simple way to add a daily cron:
 
-erlcron:at({3, 30, pm}, Fun).
+    erlcron:at({3, 30, pm}, Fun).
 
 A simple way to add a job that will be run once in the future. Where
 'once' is the number of seconds until it runs.
 
-erlcron:once(300, Fun).
-
+    erlcron:once(300, Fun).
 
 Cancel a running job.
 
-erlcron:cancel(JobRef).
+    erlcron:cancel(JobRef).
 
 
 Get the current date time of the system.
 
-erlcron:datetime().
+    erlcron:datetime().
 
 
 Set the current date time of the system. Any tests that need to be run
 in the interim will be run as the time rolls forward.
 
-erlcron:set_datetime(DateTime).
-
+    erlcron:set_datetime(DateTime).
 
 Set the current date time of the system on all nodes in the
 cluster. Any tests that need to be run in the interim will be run as
 the time rolls forward.
 
-erlcron:multi_set_datetime(DateTime).
+    erlcron:multi_set_datetime(DateTime).
 
 Set the current date time of the system on a specific set of nodes in
 the cluster. Any tests that need to be run in the interim will be run
 as the time rolls forward.
 
-erlcron:multi_set_datetime(Nodes, DateTime).
-
+    erlcron:multi_set_datetime(Nodes, DateTime).
