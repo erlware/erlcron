@@ -1,5 +1,4 @@
 %% -*- Erlang -*-
-%% This is the application resource file (.app file) for the ecd_ops application.
 
 {application, erlcron,
  [{description, "Erlang Implementation of cron"},
