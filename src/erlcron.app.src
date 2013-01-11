@@ -1,13 +1,7 @@
-%% -*- Erlang -*-
-
-{application, erlcron,
- [{description, "Erlang Implementation of cron"},
-   {vsn, "0.2"},
-   {modules, []},
-   {registered, [ecrn_agent]},
-   {applications, [kernel,
-                   stdlib,
-                   sasl,
-                   eunit]},
-     {mod,
-    {ecrn_app, []}}]}.
+{application,erlcron,
+ [{description,"Erlang Implementation of cron"},
+  {vsn,"0.2"},
+  {modules,[]},
+  {registered,[ecrn_agent]},
+  {applications,[kernel,stdlib]},
+  {mod,{ecrn_app,[]}}]}.
