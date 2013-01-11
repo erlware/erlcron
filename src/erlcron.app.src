@@ -1,0 +1,7 @@
+{application,erlcron,
+ [{description,"Erlang Implementation of cron"},
+  {vsn,"0.2"},
+  {modules,[]},
+  {registered,[ecrn_agent]},
+  {applications,[kernel,stdlib]},
+  {mod,{ecrn_app,[]}}]}.
