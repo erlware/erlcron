@@ -105,3 +105,26 @@ the cluster. Any tests that need to be run in the interim will be run
 as the time rolls forward.
 
     erlcron:multi_set_datetime(Nodes, DateTime).
+
+The application cron can be pre-configured throught environment variables
+in the config file that all applications can load in the Erlang VM start.
+The app.config file can be as follow:
+
+[
+    {erlcron, [
+        {crontab, [
+            {{once, {3, 30, pm}}, {io, fwrite, ["Hello, world!~n"]}},
+
+            {{once, {12, 23, 32}}, {io, fwrite, ["Hello, world!~n"]}},
+
+            {{daily, {every, {23, sec}, {between, {3, pm}, {3, 30, pm}}}},
+             {io, fwrite, ["Hello, world!~n"]}}
+
+        ]}
+    ]}
+].
+
+So, when the app will be started, all configurations will be loaded.
+
+Note that the limitation is that in the config file is impossible load an
+anonymous function (or lambda function) so, you only can use {M,F,A} format.
