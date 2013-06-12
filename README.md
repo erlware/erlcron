@@ -29,46 +29,49 @@ stopped and restarted on such occasions.
 
 Cron Job Description Examples:
 
-   {{once, {3, 30, pm}},
-   {io, fwrite, ["Hello, world!~n"]}}
+```erlang
+{{once, {3, 30, pm}},
+    {io, fwrite, ["Hello, world!~n"]}}
 
-   {{once, {12, 23, 32}},
-     {io, fwrite, ["Hello, world!~n"]}}
+{{once, {12, 23, 32}},
+    {io, fwrite, ["Hello, world!~n"]}}
 
-   {{once, 3600},
-     {io, fwrite, ["Hello, world!~n"]}}
+{{once, 3600},
+    {io, fwrite, ["Hello, world!~n"]}}
 
-   {{daily, {every, {23, sec}, {between, {3, pm}, {3, 30, pm}}}},
-     {io, fwrite, ["Hello, world!~n"]}}
+{{daily, {every, {23, sec}, {between, {3, pm}, {3, 30, pm}}}},
+    {io, fwrite, ["Hello, world!~n"]}}
 
-   {{daily, {3, 30, pm}},
-     fun() -> io:fwrite("It's three thirty~n") end}
+{{daily, {3, 30, pm}},
+    fun() -> io:fwrite("It's three thirty~n") end}
 
-   {{daily, [{1, 10, am}, {1, 07, 30, am}]},
-     {io, fwrite, ["Bing~n"]}}
+{{daily, [{1, 10, am}, {1, 07, 30, am}]},
+    {io, fwrite, ["Bing~n"]}}
 
-   {{weekly, thu, {2, am}},
-     {io, fwrite, ["It's 2 Thursday morning~n"]}}
+{{weekly, thu, {2, am}},
+    {io, fwrite, ["It's 2 Thursday morning~n"]}}
 
-   {{weekly, wed, {2, am}},
-     {fun() -> io:fwrite("It's 2 Wednesday morning~n") end}
+{{weekly, wed, {2, am}},
+    {fun() -> io:fwrite("It's 2 Wednesday morning~n") end}
 
-   {{weekly, fri, {2, am}},
-     {io, fwrite, ["It's 2 Friday morning~n"]}}
+{{weekly, fri, {2, am}},
+    {io, fwrite, ["It's 2 Friday morning~n"]}}
 
-   {{monthly, 1, {2, am}},
-     {io, fwrite, ["First of the month!~n"]}}
+{{monthly, 1, {2, am}},
+    {io, fwrite, ["First of the month!~n"]}}
 
-   {{monthly, 4, {2, am}},
-     {io, fwrite, ["Fourth of the month!~n"]}}
-
+{{monthly, 4, {2, am}},
+    {io, fwrite, ["Fourth of the month!~n"]}}
+```
 
 Adding a cron to the system:
 
-    Job = {{weekly, thu, {2, am}},
-         {io, fwrite, ["It's 2 Thursday morning~n"]}}.
+```erlang
+Job = {{weekly, thu, {2, am}},
+    {io, fwrite, ["It's 2 Thursday morning~n"]}}.
 
-    erlcron:cron(Job).
+erlcron:cron(Job).
+```
 
 A simple way to add a daily cron:
 
@@ -77,31 +80,66 @@ A simple way to add a daily cron:
 A simple way to add a job that will be run once in the future. Where
 'once' is the number of seconds until it runs.
 
-    erlcron:once(300, Fun).
+```erlang
+erlcron:once(300, Fun).
+```
 
 Cancel a running job.
 
-    erlcron:cancel(JobRef).
-
+```erlang
+erlcron:cancel(JobRef).
+```
 
 Get the current date time of the system.
 
-    erlcron:datetime().
-
+```erlang
+erlcron:datetime().
+```
 
 Set the current date time of the system. Any tests that need to be run
 in the interim will be run as the time rolls forward.
 
-    erlcron:set_datetime(DateTime).
+```erlang
+erlcron:set_datetime(DateTime).
+```
 
 Set the current date time of the system on all nodes in the
 cluster. Any tests that need to be run in the interim will be run as
 the time rolls forward.
 
-    erlcron:multi_set_datetime(DateTime).
+```erlang
+erlcron:multi_set_datetime(DateTime).
+```
 
 Set the current date time of the system on a specific set of nodes in
 the cluster. Any tests that need to be run in the interim will be run
 as the time rolls forward.
 
-    erlcron:multi_set_datetime(Nodes, DateTime).
+```erlang
+erlcron:multi_set_datetime(Nodes, DateTime).
+```
+
+The application cron can be pre-configured throught environment variables
+in the config file that all applications can load in the Erlang VM start.
+The app.config file can be as follow:
+
+```erlang
+[
+    {erlcron, [
+        {crontab, [
+            {{once, {3, 30, pm}}, {io, fwrite, ["Hello, world!~n"]}},
+
+            {{once, {12, 23, 32}}, {io, fwrite, ["Hello, world!~n"]}},
+
+            {{daily, {every, {23, sec}, {between, {3, pm}, {3, 30, pm}}}},
+             {io, fwrite, ["Hello, world!~n"]}}
+
+        ]}
+    ]}
+].
+```
+
+So, when the app will be started, all configurations will be loaded.
+
+Note that the limitation is that in the config file is impossible load an
+anonymous function (or lambda function) so, you only can use {M,F,A} format.
