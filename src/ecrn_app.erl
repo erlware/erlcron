@@ -10,7 +10,7 @@
 -behaviour(application).
 
 %% API
--export([manual_start/0, manual_stop/0]).
+-export([manual_start/0, manual_stop/0,start/0]).
 
 %% Application callbacks
 -export([start/2, stop/1]).
@@ -21,6 +21,9 @@
 
 %% @doc
 %%  start up the app and all the dependent apps.
+start()->
+    manual_start().
+
 manual_start() ->
     application:start(crypto),
     application:start(eunit),
