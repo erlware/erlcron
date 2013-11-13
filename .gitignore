@@ -3,3 +3,4 @@ ebin/*.app
 .*
 deps/*
 *~
+log/

@@ -7,6 +7,8 @@
 %%%  Agent for cronish testing
 -module(ecrn_agent).
 
+-compile([{parse_transform, lager_transform}]).
+
 -behaviour(gen_server).
 
 %% API
@@ -161,6 +163,7 @@ do_job_run(State, {_, Job})
     proc_lib:spawn(RunFun);
 do_job_run(State, {_, {M, F, A}})
   when is_record(State, state) ->
+    lager:info("Running ~p:~p(~p)",[M,F,A]),
     proc_lib:spawn(M, F, A).
 
 %% @doc Returns the current time, in seconds past midnight.
