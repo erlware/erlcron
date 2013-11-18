@@ -28,6 +28,8 @@ manual_start() ->
     application:start(crypto),
     application:start(eunit),
     application:start(sasl),
+    application:start(goldrush),
+    application:start(lager),
     application:start(erlcron).
 
 %% @doc

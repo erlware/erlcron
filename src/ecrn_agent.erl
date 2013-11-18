@@ -160,11 +160,33 @@ do_job_run(State, {_, Job})
     RunFun = fun() ->
                      Job(State#state.alarm_ref, current_date(State))
              end,
+    % TODO This should have the better logging too
     proc_lib:spawn(RunFun);
-do_job_run(State, {_, {M, F, A}})
+do_job_run(State, {_, {Mod, Fun, Args}})
   when is_record(State, state) ->
-    lager:info("Running ~p:~p(~p)",[M,F,A]),
-    proc_lib:spawn(M, F, A).
+
+  lager:info("running: ~p:~p(~p) ...", [Mod, Fun, Args]),
+    
+  Start = high_resolution_seconds_since_epoch(),
+    
+  case catch apply(Mod, Fun, Args) of
+    {'EXIT', Reason} ->
+      TimeInMs = round((high_resolution_seconds_since_epoch() - Start) * 1000),
+      lager:error("running: ~p:~p(~p) ... failure [reason: ~p, timer: ~pms]", [Mod, Fun, Args, Reason, TimeInMs]);
+    {error, Reason} ->
+      TimeInMs = round((high_resolution_seconds_since_epoch() - Start) * 1000),
+      lager:error("running: ~p:~p(~p) ... failure [reason: ~p, timer: ~pms]", [Mod, Fun, Args, Reason, TimeInMs]);
+    ok ->
+      TimeInMs = round((high_resolution_seconds_since_epoch() - Start) * 1000),
+      lager:info("running: ~p:~p(~p) ... success [timer: ~pms]", [Mod, Fun, Args, TimeInMs]);
+    Res ->
+      TimeInMs = round((high_resolution_seconds_since_epoch() - Start) * 1000),
+      lager:info("running: ~p:~p(~p) ... success (result: ~p, timer: ~pms]", [Mod, Fun, Args, Res, TimeInMs])
+  end.
+
+
+
+
 
 %% @doc Returns the current time, in seconds past midnight.
 -spec current_time/1 :: (state()) -> erlcron:seconds().
@@ -402,3 +424,9 @@ fast_forward(State, NewDate) ->
         throw:invalid_once_exception ->
             {error, invalid_once_exception}
     end.
+
+high_resolution_seconds_since_epoch () ->
+  timestamp_to_high_resolution_seconds(os:timestamp()).
+
+timestamp_to_high_resolution_seconds ({Mega, Seconds, Micro}) ->
+  (Mega * 1000000) + Seconds + (Micro / 1000000).
