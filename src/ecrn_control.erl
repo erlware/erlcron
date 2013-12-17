@@ -112,5 +112,5 @@ internal_cancel(AlarmRef) ->
         undefined ->
             undefined;
         {ok, [Pid]} ->
-            {ok, ecrn_agent:cancel(Pid)}
+            ecrn_agent:cancel(Pid)
     end.
