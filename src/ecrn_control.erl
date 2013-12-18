@@ -35,7 +35,7 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
--spec cancel/1 :: (erlcron:job_ref()) -> ok.
+-spec cancel/1 :: (erlcron:job_ref()) -> ok | undefined.
 cancel(AlarmRef) ->
     gen_server:call(?SERVER, {cancel, AlarmRef}).
 
