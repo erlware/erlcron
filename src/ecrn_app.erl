@@ -57,7 +57,5 @@ setup() ->
                 erlcron:cron(CronJob) 
             end, Crontab);
         undefined ->
-            ok;
-        Reason ->
-            error_logger:error_msg("Unknown crontab in configfile: ~p~n", [Reason])
+            ok
     end.
