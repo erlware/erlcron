@@ -204,6 +204,10 @@ normalize_seconds(State, Seconds) ->
                                    erlcron:seconds().
 until_next_time(_State, {{once, Seconds}, _What}) when is_integer(Seconds) ->
     Seconds;
+until_next_time(State, {{once, {{Y, M, D}, Time}}, _What})
+  when is_integer(Y), is_integer(M), is_integer(D) ->
+    Seconds = until_date(State, {Y, M, D}) + resolve_time(Time),
+    normalize_seconds(State, Seconds);
 until_next_time(State, {{once, {H, M, S}}, _What})
   when is_integer(H), is_integer(M), is_integer(S) ->
     normalize_seconds(State, S + (M + (H * 60)) * 60);
@@ -241,6 +245,15 @@ until_next_time(State, {{monthly, DoM, Period}, _What}) ->
         _ ->
             until_days_from_now(State, Period, Days)
     end.
+
+
+%% @doc Calculates the duration in seconds until the same time in specified date
+-spec until_date/2 :: (state(), calendar:date()) -> erlcron:seconds().
+until_date(State, Date) ->
+    CurrentDateDays = calendar:date_to_gregorian_days(current_date(State)),
+    Days = calendar:date_to_gregorian_days(Date) - CurrentDateDays,
+    Days * 24 * 3600.
+
 
 %% @doc Calculates the duration in seconds until the next time this
 %% period is to occur during the day.
@@ -299,7 +312,7 @@ resolve_period0(Period, Time, EndTime, Acc) ->
     resolve_period0(Period, Time + Period, EndTime, [Time | Acc]).
 
 %% @doc Returns seconds past midnight for a given time.
--spec resolve_time/1 :: (erlcron:cron_time()) -> erlcron:seconds().
+-spec resolve_time/1 :: (erlcron:cron_daytime()) -> erlcron:seconds().
 resolve_time({H, M, S}) when H < 24, M < 60, S < 60  ->
     S + M * 60 + H * 3600;
 resolve_time({H, M, S, X}) when  H < 24, M < 60, S < 60, is_atom(X) ->

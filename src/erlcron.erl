@@ -24,6 +24,7 @@
               duration/0,
               constraint/0,
               cron_time/0,
+              cron_daytime/0,
               seconds/0]).
 
 
@@ -33,12 +34,13 @@
 
 -type seconds()    :: integer().
 
--type cron_time()   :: {integer(), am | pm}
+-type cron_daytime() :: {integer(), am | pm}
                      | {integer(), integer(), am | pm}
                      | calendar:time().
--type constraint() :: {between, cron_time(), cron_time()}.
+-type cron_time()  :: cron_daytime() | {calendar:date(), cron_daytime()}.
+-type constraint() :: {between, cron_daytime(), cron_daytime()}.
 -type duration()   :: {integer(), hr | min | sec}.
--type period()     :: cron_time() | {every, duration(), constraint()}.
+-type period()     :: cron_daytime() | {every, duration(), constraint()}.
 -type dom()        :: integer().
 -type dow()        :: mon | tue | wed | thu | fri | sat | sun.
 -type callable()   :: mfa() | function().
@@ -76,7 +78,7 @@ cron(Job) ->
 %% @doc
 %%  Convienience method to specify a job run to run on a daily basis
 %%  at a specific time.
--spec at/2 :: (cron_time() | seconds(), function()) -> job_ref().
+-spec at/2 :: (cron_daytime() | seconds(), function()) -> job_ref().
 at(When, Fun) ->
     Job = {{daily, When}, Fun},
     cron(Job).
