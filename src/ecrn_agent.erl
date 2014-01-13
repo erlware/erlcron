@@ -246,14 +246,14 @@ until_next_time(State, {{monthly, DoM, Period}, _What}) ->
             until_days_from_now(State, Period, Days)
     end.
 
-
 %% @doc Calculates the duration in seconds until the same time in specified date
 -spec until_date/2 :: (state(), calendar:date()) -> erlcron:seconds().
 until_date(State, Date) ->
-    CurrentDateDays = calendar:date_to_gregorian_days(current_date(State)),
+erlang:display(Date),
+    {CurrentDate, _} = current_date(State),
+    CurrentDateDays = calendar:date_to_gregorian_days(CurrentDate),
     Days = calendar:date_to_gregorian_days(Date) - CurrentDateDays,
     Days * 24 * 3600.
-
 
 %% @doc Calculates the duration in seconds until the next time this
 %% period is to occur during the day.
@@ -272,7 +272,6 @@ until_next_daytime(State, Period) ->
 -spec last_time/1 :: (erlcron:period()) -> erlcron:seconds().
 last_time(Period) ->
     hd(lists:reverse(lists:sort(resolve_period(Period)))).
-
 
 %% @doc Calculates the first time in a given period.
 -spec first_time/1 :: (erlcron:period()) -> erlcron:seconds().
