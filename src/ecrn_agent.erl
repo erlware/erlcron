@@ -93,9 +93,11 @@ init([JobRef, Job]) ->
     {DateTime, Actual} = ecrn_control:datetime(),
     NewState = set_internal_time(State, DateTime, Actual),
     case until_next_milliseconds(NewState, Job) of
-        {ok, Millis} when is_integer(Millis) ->
+        {ok, Millis} when is_integer(Millis), Millis < 16#ffffffff ->
             ecrn_reg:register(JobRef, self()),
             {ok, NewState, Millis};
+        {ok, Millis} when is_integer(Millis) ->
+            {stop, normal};
         {error, _}  ->
             {stop, normal}
     end.
