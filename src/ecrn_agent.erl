@@ -310,6 +310,8 @@ resolve_period([]) ->
     [];
 resolve_period([H | T]) ->
     resolve_period(H) ++ resolve_period(T);
+resolve_period({every, Duration}) ->
+    resolve_period({every, Duration, {between, {12,0, am}, {11, 59, pm}}});
 resolve_period({every, Duration, {between, TimeA, TimeB}}) ->
     Period = resolve_dur(Duration),
     StartTime = resolve_time(TimeA),
