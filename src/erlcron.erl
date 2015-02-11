@@ -41,7 +41,7 @@
 -type period()     :: cron_time() | {every, duration(), constraint()}.
 -type dom()        :: integer().
 -type dow()        :: mon | tue | wed | thu | fri | sat | sun.
--type callable()   :: mfa() | function().
+-type callable()   :: {M :: module(), F :: atom(), A :: [term()]} | function().
 -type run_when()   :: {once, cron_time()}
                     | {once, seconds()}
                     | {daily, period()}
