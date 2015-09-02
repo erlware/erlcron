@@ -14,5 +14,7 @@
 %%%===================================================================
 -spec epoch_seconds/0 :: () -> erlcron:seconds().
 epoch_seconds() ->
-    {Megasecs, Secs, Microsecs} = erlang:now(),
+    %% TODO: This should be changed to erlang:timestamp() when all
+    %%       your systems have moved away from OTP 17
+    {Megasecs, Secs, Microsecs} = os:timestamp(),
     erlang:trunc((Megasecs * 1000000) + Secs + (Microsecs / 1000000)).
