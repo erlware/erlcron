@@ -76,7 +76,7 @@ cron(Job) ->
 %% @doc
 %%  Convienience method to specify a job run to run on a daily basis
 %%  at a specific time.
--spec at/2 :: (cron_time() | seconds(), function()) -> job_ref().
+-spec at/2 :: (cron_time() | seconds(), callable()) -> job_ref().
 at(When, Fun) ->
     Job = {{daily, When}, Fun},
     cron(Job).
