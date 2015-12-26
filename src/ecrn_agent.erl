@@ -221,7 +221,7 @@ until_next_time(State, {{weekly, DoW, Period}, _What}) ->
         Today when Today < OnDay ->
                     until_days_from_now(State, Period, OnDay - Today);
         Today when Today > OnDay  ->
-            until_days_from_now(State, Period, (OnDay+7) - Today)
+            until_days_from_now(State, Period, (OnDay+7) - Today - 1)
     end;
 until_next_time(State, {{monthly, DoM, Period}, _What}) ->
     {{ThisYear, ThisMonth, Today}, _} = current_date(State),
