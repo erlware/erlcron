@@ -5,6 +5,7 @@ otp_release:
        - R16B03-1
        - 17.5
        - 18.0
+       - 18.1
 
 before_script: "make get-deps"
 script: "make test"
