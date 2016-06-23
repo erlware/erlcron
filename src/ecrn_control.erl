@@ -49,7 +49,7 @@ set_datetime(DateTime={_,_}) ->
     gen_server:call(?SERVER, {set_datetime, DateTime}, infinity).
 
 %% @doc sets the date-time with the erlcron on all nodes
--spec multi_set_datetime/2 :: ([node()], calendar:datetime()) -> ok.
+-spec multi_set_datetime([node()], calendar:datetime()) -> ok.
 multi_set_datetime(Nodes, DateTime={_,_}) ->
     gen_server:multi_call(Nodes, ?SERVER, {set_datetime, DateTime}).
 
