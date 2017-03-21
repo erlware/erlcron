@@ -22,14 +22,19 @@
 %%% API functions
 %%%===================================================================
 
--spec start_link/0 :: () -> {ok, pid()} | ignore | {error, Error::term()}.
+%%-spec start_link/0 :: () -> {ok, pid()} | ignore | {error, Error::term()}.
+-spec start_link() -> {ok, pid()} | ignore | {error, Error::term()}.
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 
 %% @doc
 %%  Add a chron job to be supervised
--spec add_job/2 :: (erlcron:job_ref(), erlcron:job()) -> erlcron:job_ref().
+%%-spec add_job/2 :: (erlcron:job_ref(), erlcron:job()) -> erlcron:job_ref().
+-spec add_job(JobRef,Task) -> Result when
+	JobRef :: erlcron:job_ref(),
+	Task ::  erlcron:job(),
+	Result :: erlcron:job_ref().
 add_job(JobRef, Task) ->
     {ok, _} = supervisor:start_child(?SERVER, [JobRef, Task]),
     JobRef.
