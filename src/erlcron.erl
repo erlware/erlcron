@@ -60,7 +60,10 @@
 
 %% @doc
 %%  Check that the spec specified is valid or invalid
--spec validate/1 :: (run_when()) -> valid | invalid.
+%% -spec validate/1 :: (run_when()) -> valid | invalid.
+-spec validate(Spec) -> Result when
+ Spec ::run_when(),
+ Result ::valid | invalid.
 validate(Spec) ->
     ecrn_agent:validate(Spec).
 
@@ -69,52 +72,74 @@ validate(Spec) ->
 %%  spec. It returns the JobRef that can be used to manipulate the job
 %%  after it is created.
 
--spec cron/1 :: (job()) -> job_ref().
+%%-spec cron/1 :: (job()) -> job_ref().
+-spec cron(Job) -> Result when 
+	Job :: job(),
+	Result :: job_ref().
 cron(Job) ->
     JobRef = make_ref(),
     ecrn_cron_sup:add_job(JobRef, Job).
 %% @doc
 %%  Convienience method to specify a job run to run on a daily basis
 %%  at a specific time.
--spec at/2 :: (cron_time() | seconds(), function()) -> job_ref().
+%%-spec at/2 :: (cron_time() | seconds(), function()) -> job_ref().
+-spec at(When,Fun) -> Result when 
+	When :: cron_time() | seconds(),
+	Fun ::  function(),
+	Result :: job_ref().
 at(When, Fun) ->
     Job = {{daily, When}, Fun},
     cron(Job).
 
 %% @doc
 %%   Run the specified job once after the amount of time specifed.
--spec once/2 :: (cron_time() | seconds(), function()) ->  job_ref().
+%%-spec once/2 :: (cron_time() | seconds(), function()) ->  job_ref().
+-spec once(When,Fun) -> Result when
+	When :: cron_time() | seconds(),
+	Fun ::  function(),
+	Result :: job_ref().
 once(When, Fun) ->
     Job = {{once, When}, Fun},
     cron(Job).
 
 %% @doc
 %% Cancel the job specified by the jobref.
--spec cancel/1 :: (job_ref()) -> ok | undefined.
+%%-spec cancel/1 :: (job_ref()) -> ok | undefined.
+-spec cancel(JobRef) -> Result when
+	JobRef :: job_ref(),
+	Result :: ok | undefined.
 cancel(JobRef) ->
     ecrn_control:cancel(JobRef).
 
 %% @doc
 %%  Get the current date time of the running erlcron system.
--spec datetime/0 :: () -> {calendar:datetime(), seconds()}.
+%%-spec datetime/0 :: () -> {calendar:datetime(), seconds()}.
+-spec datetime() -> {calendar:datetime(), seconds()}.
 datetime() ->
     ecrn_control:datetime().
 
 %% @doc
 %%  Set the current date time of the running erlcron system.
--spec set_datetime/1 :: (calendar:datetime()) -> ok.
+%%-spec set_datetime/1 :: (calendar:datetime()) -> ok.
+-spec set_datetime(DateTime) ->  ok when
+	DateTime :: calendar:datetime().
 set_datetime(DateTime) ->
     ecrn_control:set_datetime(DateTime).
 
 %% @doc
 %%  Set the current date time of the erlcron system running on different nodes.
--spec multi_set_datetime/1 :: (calendar:datetime()) -> ok.
+%%-spec multi_set_datetime/1 :: (calendar:datetime()) -> ok.
+-spec multi_set_datetime(DateTime) -> ok when
+	DateTime ::calendar:datetime().
 multi_set_datetime(DateTime) ->
     ecrn_control:multi_set_datetime([node()|nodes()], DateTime).
 
 %% @doc
 %%  Set the current date time of the erlcron system running on the
 %%  specified nodes
--spec multi_set_datetime/2 :: ([node()], calendar:datetime()) -> ok.
+%%-spec multi_set_datetime/2 :: ([node()], calendar:datetime()) -> ok.
+-spec multi_set_datetime(Nodes,DateTime) -> ok when 
+	Nodes :: [node()],
+	DateTime ::calendar:datetime().
 multi_set_datetime(Nodes, DateTime) when is_list(Nodes) ->
     ecrn_control:multi_set_datetime(Nodes, DateTime).
