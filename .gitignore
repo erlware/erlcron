@@ -2,3 +2,5 @@ ebin/*.beam
 ebin/*.app
 .*
 deps/*
+*~
+log/

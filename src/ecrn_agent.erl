@@ -7,6 +7,8 @@
 %%%  Agent for cronish testing
 -module(ecrn_agent).
 
+-compile([{parse_transform, lager_transform}]).
+
 -behaviour(gen_server).
 
 %% API
@@ -158,10 +160,33 @@ do_job_run(State, {_, Job})
     RunFun = fun() ->
                      Job(State#state.alarm_ref, current_date(State))
              end,
+    % TODO This should have the better logging too
     proc_lib:spawn(RunFun);
-do_job_run(State, {_, {M, F, A}})
+do_job_run(State, {_, {Mod, Fun, Args}})
   when is_record(State, state) ->
-    proc_lib:spawn(M, F, A).
+
+  lager:info("running: ~p:~p(~p) ...", [Mod, Fun, Args]),
+    
+  Start = high_resolution_seconds_since_epoch(),
+    
+  case catch apply(Mod, Fun, Args) of
+    {'EXIT', Reason} ->
+      TimeInMs = round((high_resolution_seconds_since_epoch() - Start) * 1000),
+      lager:error("running: ~p:~p(~p) ... failure [reason: ~p, timer: ~pms]", [Mod, Fun, Args, Reason, TimeInMs]);
+    {error, Reason} ->
+      TimeInMs = round((high_resolution_seconds_since_epoch() - Start) * 1000),
+      lager:error("running: ~p:~p(~p) ... failure [reason: ~p, timer: ~pms]", [Mod, Fun, Args, Reason, TimeInMs]);
+    ok ->
+      TimeInMs = round((high_resolution_seconds_since_epoch() - Start) * 1000),
+      lager:info("running: ~p:~p(~p) ... success [timer: ~pms]", [Mod, Fun, Args, TimeInMs]);
+    Res ->
+      TimeInMs = round((high_resolution_seconds_since_epoch() - Start) * 1000),
+      lager:info("running: ~p:~p(~p) ... success (result: ~p, timer: ~pms]", [Mod, Fun, Args, Res, TimeInMs])
+  end.
+
+
+
+
 
 %% @doc Returns the current time, in seconds past midnight.
 -spec current_time(state()) -> erlcron:seconds().
@@ -285,6 +310,8 @@ resolve_period([]) ->
     [];
 resolve_period([H | T]) ->
     resolve_period(H) ++ resolve_period(T);
+resolve_period({every, Duration}) ->
+    resolve_period({every, Duration, {between, {12,0, am}, {11, 59, pm}}});
 resolve_period({every, Duration, {between, TimeA, TimeB}}) ->
     Period = resolve_dur(Duration),
     StartTime = resolve_time(TimeA),
@@ -399,3 +426,9 @@ fast_forward(State, NewDate) ->
         throw:invalid_once_exception ->
             {error, invalid_once_exception}
     end.
+
+high_resolution_seconds_since_epoch () ->
+  timestamp_to_high_resolution_seconds(os:timestamp()).
+
+timestamp_to_high_resolution_seconds ({Mega, Seconds, Micro}) ->
+  (Mega * 1000000) + Seconds + (Micro / 1000000).
