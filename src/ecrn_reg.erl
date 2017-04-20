@@ -31,13 +31,13 @@
 %%% API
 %%%===================================================================
 
--spec start_link/0 :: () -> {ok, Pid::pid()} | ignore | {error, Error::term()}.
+-spec start_link() -> {ok, Pid::pid()} | ignore | {error, Error::term()}.
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %% @doc
 %%   Register an arbitrary value with the system, under a set of keys
--spec register/2 :: (term() | [term()], term()) -> ok | {discarded_keys, [term()]}.
+-spec register(term() | [term()], term()) -> ok | {discarded_keys, [term()]}.
 register(Keys, Body) when is_list(Keys) ->
     gen_server:call(?SERVER, {register, Keys, Body});
 register(Key, Body)  ->
@@ -45,7 +45,7 @@ register(Key, Body)  ->
 
 %% @doc
 %%   Remove the value registered under a que or set of keys
--spec unregister/1 :: (term() | [term()]) -> ok.
+-spec unregister(term() | [term()]) -> ok.
 unregister(Keys) when is_list(Keys) ->
     gen_server:call(?SERVER, {unregister, Keys});
 unregister(Key) ->
@@ -53,19 +53,19 @@ unregister(Key) ->
 
 %% @doc
 %%  Get a value buy key.
--spec get/1 :: (term()) -> {ok, term()} | undefined.
+-spec get(term()) -> {ok, term()} | undefined.
 get(Key) ->
     gen_server:call(?SERVER, {get, Key}).
 
 %% @doc
 %%  Get all the values.
--spec get_all/0 :: () -> [{term(), term()}].
+-spec get_all() -> [{term(), term()}].
 get_all() ->
     gen_server:call(?SERVER, get_all).
 
 %% @doc
 %%  stop this server
--spec stop/0 :: () -> ok.
+-spec stop() -> ok.
 stop() ->
     gen_server:call(?SERVER, stop).
 

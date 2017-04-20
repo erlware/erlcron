@@ -18,7 +18,7 @@
 %%% API functions
 %%%===================================================================
 
--spec start_link/0 :: () -> {ok, Pid::term()} | ignore | {error, Error::term()}.
+-spec start_link() -> {ok, Pid::term()} | ignore | {error, Error::term()}.
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
