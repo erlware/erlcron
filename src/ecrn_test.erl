@@ -147,15 +147,15 @@ cron_test(_) ->
                      end).
 
 validation_test(_) ->
-    ?assertMatch(valid, ecrn_agent:validate({once, {3, 30, pm}})),
-    ?assertMatch(valid, ecrn_agent:validate({once, 3600})),
-    ?assertMatch(valid, ecrn_agent:validate({daily, {every, {23, sec},
+    ?assertMatch({valid, _}, ecrn_agent:validate({once, {3, 30, pm}})),
+    ?assertMatch({valid, _}, ecrn_agent:validate({once, 3600})),
+    ?assertMatch({valid, _}, ecrn_agent:validate({daily, {every, {23, sec},
                                                      {between, {3, pm}, {3, 30, pm}}}})),
-    ?assertMatch(valid, ecrn_agent:validate({daily, {3, 30, pm}})),
-    ?assertMatch(valid, ecrn_agent:validate({weekly, thu, {2, am}})),
-    ?assertMatch(valid, ecrn_agent:validate({weekly, wed, {2, am}})),
-    ?assertMatch(valid, ecrn_agent:validate({monthly, 1, {2, am}})),
-    ?assertMatch(valid, ecrn_agent:validate({monthly, 4, {2, am}})),
+    ?assertMatch({valid, _}, ecrn_agent:validate({daily, {3, 30, pm}})),
+    ?assertMatch({valid, _}, ecrn_agent:validate({weekly, thu, {2, am}})),
+    ?assertMatch({valid, _}, ecrn_agent:validate({weekly, wed, {2, am}})),
+    ?assertMatch({valid, _}, ecrn_agent:validate({monthly, 1, {2, am}})),
+    ?assertMatch({valid, _}, ecrn_agent:validate({monthly, 4, {2, am}})),
     ?assertMatch(invalid, ecrn_agent:validate({daily, {55, 22, am}})),
     ?assertMatch(invalid, ecrn_agent:validate({monthly, 65, {55, am}})).
 

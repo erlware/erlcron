@@ -60,7 +60,7 @@
 
 %% @doc
 %%  Check that the spec specified is valid or invalid
--spec validate(run_when()) -> valid | invalid.
+-spec validate(run_when()) -> {valid, erlcron:seconds()} | invalid.
 validate(Spec) ->
     ecrn_agent:validate(Spec).
 

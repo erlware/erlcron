@@ -68,15 +68,14 @@ recalculate(Pid) ->
 
 %% @doc
 %%  Validate that a run_when spec specified is correct.
--spec validate(erlcron:run_when()) -> valid | invalid.
+-spec validate(erlcron:run_when()) -> {valid, erlcron:seconds()} | invalid.
 validate(Spec) ->
     State = #state{job=undefined,
                    alarm_ref=undefined},
     {DateTime, Actual} = ecrn_control:datetime(),
     NewState = set_internal_time(State, DateTime, Actual),
     try
-        until_next_time(NewState, {Spec, undefined}),
-        valid
+        {valid, until_next_time(NewState, {Spec, undefined})}
     catch
         _Error:_Reason ->
             invalid
