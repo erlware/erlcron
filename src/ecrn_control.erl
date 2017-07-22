@@ -22,8 +22,6 @@
 
 -define(SERVER, ?MODULE).
 
--include("internal.hrl").
-
 -record(state, {reference_datetime :: calendar:datetime(),
                 datetime_at_reference :: erlcron:seconds()}).
 
