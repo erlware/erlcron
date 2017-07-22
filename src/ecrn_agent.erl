@@ -210,35 +210,11 @@ until_next_time(State, {{once, Period}, _What})  ->
 until_next_time(State, {{daily, Period}, _What}) ->
     until_next_daytime(State, Period);
 until_next_time(State, {{weekly, DoW, Period}, _What}) ->
-    OnDay = resolve_dow(DoW),
-    {Date, _} = current_date(State),
-    Today = calendar:day_of_the_week(Date),
-    case Today of
-        OnDay ->
-            until_next_daytime_or_days_from_now(State, Period, 7);
-        Today when Today < OnDay ->
-                    until_days_from_now(State, Period, OnDay - Today);
-        Today when Today > OnDay  ->
-            until_days_from_now(State, Period, (OnDay+7) - Today)
-    end;
+    {ThisDate, ThisTime} = current_date(State),
+    until_days_from_now(calendar:day_of_the_week(ThisDate), resolve_dow(DoW), ThisTime, Period, 7);
 until_next_time(State, {{monthly, DoM, Period}, _What}) ->
-    {{ThisYear, ThisMonth, Today}, _} = current_date(State),
-    {NextYear, NextMonth} =
-        case ThisMonth of
-            12 ->
-                {ThisYear + 1, 1};
-            _  ->
-                {ThisYear, ThisMonth + 1}
-        end,
-    D1 = calendar:date_to_gregorian_days(ThisYear, ThisMonth, Today),
-    D2 = calendar:date_to_gregorian_days(NextYear, NextMonth, DoM),
-    Days = D2 - D1,
-    case Today of
-        DoM ->
-            until_next_daytime_or_days_from_now(State, Period, Days);
-        _ ->
-            until_days_from_now(State, Period, Days)
-    end.
+    {{ThisYear, ThisMonth, Today}, ThisTime} = current_date(State),
+    until_days_from_now(Today, DoM, ThisTime, Period, calendar:last_day_of_the_month(ThisYear, ThisMonth)).
 
 %% @doc Calculates the duration in seconds until the next time this
 %% period is to occur during the day.
@@ -348,23 +324,17 @@ until_tomorrow(State, StartTime) ->
 
 %% @doc Calculates the duration in seconds until the given period
 %% occurs several days from now.
--spec until_days_from_now(state(), erlcron:period(), integer()) ->
-                                       erlcron:seconds().
-until_days_from_now(State, Period, Days) ->
-    Days * 24 * 3600 + until_next_daytime(State, Period).
-
-%% @doc Calculates the duration in seconds until the given period
-%% occurs, which may be today or several days from now.
--spec until_next_daytime_or_days_from_now(state(), erlcron:period(), integer()) ->
-                                                       erlcron:seconds().
-until_next_daytime_or_days_from_now(State, Period, Days) ->
-    CurrentTime = current_time(State),
-    case last_time(Period) of
-        T when T < CurrentTime ->
-            until_days_from_now(State, Period, Days-1);
-        _ ->
-            until_next_daytime(State, Period)
-    end.
+-spec until_days_from_now(Today::1..7|1..31, Day::1..7|1..31, ThisTime::calendar:time(),
+                          Period::erlcron:period(), Days::7|28..31) ->
+          erlcron:seconds().
+until_days_from_now(Today, Day, ThisTime, Period, Days) ->
+    ThisSeconds = calendar:time_to_seconds(ThisTime),
+    PeriodSeconds = resolve_time(Period),
+    if
+        Today =:= Day, ThisSeconds < PeriodSeconds -> 0;
+        Today < Day -> Day - Today;
+        true -> Days + Day - Today
+    end * (24 * 3600) + PeriodSeconds - ThisSeconds.
 
 set_internal_time(State, RefDate, CurrentSeconds) ->
     NewSeconds = calendar:datetime_to_gregorian_seconds(RefDate),
