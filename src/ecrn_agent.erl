@@ -331,10 +331,10 @@ until_days_from_now(Today, Day, ThisTime, Period, Days) ->
     ThisSeconds = calendar:time_to_seconds(ThisTime),
     PeriodSeconds = resolve_time(Period),
     if
-        Today =:= Day, ThisSeconds < PeriodSeconds -> 0;
-        Today < Day -> Day - Today;
-        true -> Days + Day - Today
-    end * (24 * 3600) + PeriodSeconds - ThisSeconds.
+        Today =:= Day, ThisSeconds < PeriodSeconds -> PeriodSeconds;
+        Today < Day -> (Day - Today) * (24 * 3600) + PeriodSeconds;
+        true -> (Days + Day - Today) * (24 * 3600) + PeriodSeconds
+    end - ThisSeconds.
 
 set_internal_time(State, RefDate, CurrentSeconds) ->
     NewSeconds = calendar:datetime_to_gregorian_seconds(RefDate),
