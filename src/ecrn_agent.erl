@@ -353,7 +353,13 @@ until_tomorrow(State, StartTime) ->
 -spec until_days_from_now (state(), erlcron:period(), integer()) ->
                                        erlcron:seconds().
 until_days_from_now(State, Period, Days) ->
-    Days * 24 * 3600 + until_next_daytime(State, Period).
+    CurrentTime = current_time(State),
+    case last_time(Period) of
+        T when T < CurrentTime ->
+            (Days - 1) * 24 * 3600 + until_next_daytime(State, Period);
+        _ ->
+            Days * 24 * 3600 + until_next_daytime(State, Period)
+    end.
 
 %% @doc Calculates the duration in seconds until the given period
 %% occurs, which may be today or several days from now.
