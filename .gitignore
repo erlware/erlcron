@@ -1,4 +1,5 @@
-ebin/*.beam
-ebin/*.app
-.*
-deps/*
+rebar.lock
+TEST-*.xml
+_build
+.rebar3
+

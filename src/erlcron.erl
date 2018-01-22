@@ -4,27 +4,29 @@
 %%% this file except in compliance with the License.
 -module(erlcron).
 
--export([validate/1,
-         cron/1,
-         at/2,
-         once/2,
-         cancel/1,
-         datetime/0,
-         set_datetime/1,
-         multi_set_datetime/1,
-         multi_set_datetime/2]).
+-export([ validate/1
+        , cron/1
+        , at/2
+        , once/2
+        , cancel/1
+        , datetime/0
+        , set_datetime/1
+        , multi_set_datetime/1
+        , multi_set_datetime/2
+        ]).
 
--export_type([job/0,
-              job_ref/0,
-              run_when/0,
-              callable/0,
-              dow/0,
-              dom/0,
-              period/0,
-              duration/0,
-              constraint/0,
-              cron_time/0,
-              seconds/0]).
+-export_type([ job/0
+             , job_ref/0
+             , run_when/0
+             , callable/0
+             , dow/0
+             , dom/0
+             , period/0
+             , duration/0
+             , constraint/0
+             , cron_time/0
+             , seconds/0
+             ]).
 
 
 %%%===================================================================
@@ -33,9 +35,9 @@
 
 -type seconds()    :: integer().
 
--type cron_time()   :: {integer(), am | pm}
-                     | {integer(), integer(), am | pm}
-                     | calendar:time().
+-type cron_time()  :: {integer(), am | pm}
+                    | {integer(), integer(), am | pm}
+                    | calendar:time().
 -type constraint() :: {between, cron_time(), cron_time()}.
 -type duration()   :: {integer(), hr | min | sec}.
 -type period()     :: cron_time() | {every, duration(), constraint()}.
@@ -48,10 +50,10 @@
                     | {weekly, dow(), period()}
                     | {monthly, dom(), period()}.
 
--type  job()      :: {run_when(), callable()}.
+-type  job()       :: {run_when(), callable()}.
 
 %% should be opaque but dialyzer does not allow it
--type job_ref()   :: reference().
+-type job_ref()    :: reference().
 
 
 %%%===================================================================

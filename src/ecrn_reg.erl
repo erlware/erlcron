@@ -10,12 +10,13 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,
-         register/2,
-         unregister/1,
-         get/1,
-         stop/0,
-         get_all/0]).
+-export([ start_link/0
+        , register/2
+        , unregister/1
+        , get/1
+        , stop/0
+        , get_all/0
+        ]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
