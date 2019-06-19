@@ -189,6 +189,21 @@ until_next_milliseconds(State, Job) ->
             {error, invalid_once_exception}
     end.
 
+%%-ifdef(OTP_VSN_21_AND_ABOVE).
+-ifdef(OTP_RELEASE).
+%% OTP 21 or higher
+normalize_seconds(State, Seconds) ->
+    %% change for R21
+    %% get_stacktrace/0 not supported
+    try
+        Value = Seconds - current_time(State),
+        true = (Value >= 0)
+    catch
+        _C:_R:StackTrace ->
+            erlang:display(StackTrace),
+            throw(invalid_once_exception)
+    end.
+-else.
 normalize_seconds(State, Seconds) ->
     case Seconds - current_time(State) of
         Value when Value >= 0 ->
@@ -197,6 +212,7 @@ normalize_seconds(State, Seconds) ->
             erlang:display(erlang:get_stacktrace()),
             throw(invalid_once_exception)
     end.
+-endif.
 
 %% @doc Calculates the duration in seconds until the next time
 %% a job is to be run.
