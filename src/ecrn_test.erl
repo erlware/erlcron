@@ -22,7 +22,8 @@ cron_test_() ->
              fun cancel_alarm_test/1,
              fun big_time_jump_test/1,
              fun cron_test/1,
-             fun validation_test/1]}}.
+             fun validation_test/1,
+             fun get_datetime_test/1]}}.
 
 set_alarm_test(_) ->
     EpochDay = {2000,1,1},
@@ -158,6 +159,29 @@ validation_test(_) ->
     ?assertMatch(valid, ecrn_agent:validate({monthly, 4, {2, am}})),
     ?assertMatch(invalid, ecrn_agent:validate({daily, {55, 22, am}})),
     ?assertMatch(invalid, ecrn_agent:validate({monthly, 65, {55, am}})).
+
+get_datetime_test(_) ->
+  Now = calendar:universal_time(),
+  NowSecs = ecrn_util:datetime_to_epoch_seconds(Now),
+  erlcron:set_datetime(Now),
+  {RetNow, RetSecs} = erlcron:datetime(),
+  ?assert(RetSecs == NowSecs orelse RetSecs == NowSecs + 1),
+  {DiffDays, {DiffH, DiffM, DiffS}} = calendar:time_difference(Now, RetNow),
+  ?assertMatch(0, DiffDays),
+  ?assertMatch(0, DiffH),
+  ?assertMatch(0, DiffM),
+  ?assert(DiffS == 0 orelse DiffS == 1),
+
+  %% check for change
+  timer:sleep(1050),
+  {RetNow2, RetSecs2} = erlcron:datetime(),
+  ?assert(RetSecs2 > NowSecs),
+  {DiffDays2, {DiffH2, DiffM2, DiffS2}} = calendar:time_difference(Now, RetNow2),
+  ?assertMatch(0, DiffDays2),
+  ?assertMatch(0, DiffH2),
+  ?assertMatch(0, DiffM2),
+  ?assert(DiffS2 > 0),
+  ok.
 
 %%%===================================================================
 %%% Internal Functions

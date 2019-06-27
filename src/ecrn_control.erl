@@ -67,8 +67,12 @@ init([]) ->
 handle_call({cancel, AlarmRef}, _From, State) ->
     {reply, internal_cancel(AlarmRef), State};
 handle_call(get_datetime, _From, State = #state{reference_datetime = DateTime,
-                                                datetime_at_reference = Actual}) ->
-    {reply, {DateTime, Actual}, State};
+            datetime_at_reference = Actual}) ->
+    NewActual = ecrn_util:epoch_seconds(),
+    Elapsed = NewActual - Actual,
+    NewDateTime = ecrn_util:epoch_seconds_to_datetime(Elapsed + ecrn_util:datetime_to_epoch_seconds(DateTime)),
+    NewState = State#state{reference_datetime=NewDateTime, datetime_at_reference = NewActual},
+    {reply, {NewDateTime, NewActual}, NewState};
 handle_call({set_datetime, DateTime}, _From, State) ->
     NewState = State#state{reference_datetime=DateTime,
                            datetime_at_reference=ecrn_util:epoch_seconds()},
