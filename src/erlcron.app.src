@@ -1,7 +1,10 @@
 {application,erlcron,
  [{description,"Erlang Implementation of cron"},
-  {vsn,"semver"},
+  {vsn,"1.0"},
   {modules,[]},
   {registered,[ecrn_agent]},
   {applications,[kernel,stdlib]},
-  {mod,{ecrn_app,[]}}]}.
+  {mod,{ecrn_app,[]}},
+  {licenses, ["(c)2010 eCD Market"]},
+  {links, [{"GitHub", "https://github.com/erlware/erlcron"}]}
+ ]}.

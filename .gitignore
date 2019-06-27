@@ -2,3 +2,6 @@ ebin/*.beam
 ebin/*.app
 .*
 deps/*
+_build/
+rebar.lock
+TEST*.xml
