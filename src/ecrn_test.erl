@@ -22,7 +22,8 @@ cron_test_() ->
              fun cancel_alarm_test/1,
              fun big_time_jump_test/1,
              fun cron_test/1,
-             fun validation_test/1]}}.
+             fun validation_test/1,
+             fun job_arity_test/1]}}.
 
 set_alarm_test(_) ->
     EpochDay = {2000,1,1},
@@ -158,6 +159,21 @@ validation_test(_) ->
     ?assertMatch(valid, ecrn_agent:validate({monthly, 4, {2, am}})),
     ?assertMatch(invalid, ecrn_agent:validate({daily, {55, 22, am}})),
     ?assertMatch(invalid, ecrn_agent:validate({monthly, 65, {55, am}})).
+
+job_arity_test(_) ->
+  Self = self(),
+  erlcron:once(1, fun(_, _) -> Self ! ack end),
+  ?assertMatch(ok, receive
+                         ack -> ok
+                     after
+                         2000 -> timeout
+                     end),
+  erlcron:once(1, fun() -> Self ! ack end),
+  ?assertMatch(ok, receive
+                         ack -> ok
+                     after
+                         2000 -> timeout
+                     end).
 
 %%%===================================================================
 %%% Internal Functions

@@ -154,11 +154,14 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 
 do_job_run(State, {_, Job})
-  when is_record(State, state), is_function(Job) ->
+  when is_record(State, state), is_function(Job, 2) ->
     RunFun = fun() ->
                      Job(State#state.alarm_ref, current_date(State))
              end,
     proc_lib:spawn(RunFun);
+do_job_run(State, {_, Job})
+  when is_record(State, state), is_function(Job, 0) ->
+    proc_lib:spawn(Job);
 do_job_run(State, {_, {M, F, A}})
   when is_record(State, state) ->
     proc_lib:spawn(M, F, A).
