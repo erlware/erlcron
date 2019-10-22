@@ -2,3 +2,4 @@ ebin/*.beam
 ebin/*.app
 .*
 deps/*
+doc

@@ -22,8 +22,6 @@
 
 -define(SERVER, ?MODULE).
 
--include("internal.hrl").
-
 -record(state, {reference_datetime :: calendar:datetime(),
                 datetime_at_reference :: erlcron:seconds()}).
 
@@ -31,11 +29,11 @@
 %%% API
 %%%===================================================================
 
--spec start_link() -> {ok, pid()} | ignore | {error, Error::term()}.
+-spec start_link() -> {ok, pid()} | ignore | {error, term()}.
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
--spec cancel(erlcron:job_ref()) -> ok | undefined.
+-spec cancel(AlarmRef::erlcron:job_ref()) -> ok | undefined.
 cancel(AlarmRef) ->
     gen_server:call(?SERVER, {cancel, AlarmRef}).
 
@@ -44,13 +42,13 @@ datetime() ->
     gen_server:call(?SERVER, get_datetime).
 
 %% @doc sets the date-time for the erlcron
--spec set_datetime(calendar:datetime()) -> ok.
-set_datetime(DateTime={_,_}) ->
+-spec set_datetime(DateTime::calendar:datetime()) -> ok.
+set_datetime({_, _} = DateTime) ->
     gen_server:call(?SERVER, {set_datetime, DateTime}, infinity).
 
 %% @doc sets the date-time with the erlcron on all nodes
--spec multi_set_datetime([node()], calendar:datetime()) -> ok.
-multi_set_datetime(Nodes, DateTime={_,_}) ->
+-spec multi_set_datetime(Nodes::[node()],  DateTime::calendar:datetime()) -> ok.
+multi_set_datetime(Nodes, {_, _} =  DateTime) ->
     gen_server:multi_call(Nodes, ?SERVER, {set_datetime, DateTime}).
 
 %%%===================================================================
