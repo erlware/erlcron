@@ -13,7 +13,10 @@
 -export([start_link/0,
          cancel/1,
          datetime/0,
+         datetime/1,
          set_datetime/1,
+         set_datetime/2,
+         reset_datetime/0,
          multi_set_datetime/2]).
 
 %% gen_server callbacks
@@ -24,8 +27,8 @@
 
 -include("internal.hrl").
 
--record(state, {reference_datetime :: calendar:datetime(),
-                datetime_at_reference :: erlcron:seconds()}).
+-record(state, {ref_time :: calendar:datetime(),
+                epoch_at_ref :: erlcron:seconds()}).
 
 %%%===================================================================
 %%% API
@@ -35,21 +38,40 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
--spec cancel(erlcron:job_ref()) -> ok | undefined.
+-spec cancel(erlcron:job_ref()) -> boolean().
 cancel(AlarmRef) ->
-    gen_server:call(?SERVER, {cancel, AlarmRef}).
+    ecrn_reg:cancel(AlarmRef).
 
--spec datetime() -> {calendar:datetime(), erlcron:seconds()}.
+%% @doc Returns universal time.
+-spec datetime() -> {calendar:datetime(), erlcron:milliseconds()}.
 datetime() ->
     gen_server:call(?SERVER, get_datetime).
 
+-spec datetime(local|universal) -> {calendar:datetime(), erlcron:milliseconds()}.
+datetime(universal) ->
+    datetime();
+datetime(local) ->
+    {DT, Epoch} = datetime(),
+    {calendar:universal_time_to_local_time(DT), Epoch}.
+
 %% @doc sets the date-time for the erlcron
--spec set_datetime(calendar:datetime()) -> ok.
-set_datetime(DateTime={_,_}) ->
+-spec set_datetime(calendar:datetime()) -> ok | {error, term()}.
+set_datetime(DateTime) ->
+    set_datetime(DateTime, local).
+
+-spec set_datetime(calendar:datetime(), local|universal) -> ok | {error, term()}.
+set_datetime(DT={_,_}, local) ->
+    gen_server:call(?SERVER, {set_datetime, erlang:localtime_to_universaltime(DT)}, infinity);
+set_datetime(DateTime={_,_}, universal) ->
     gen_server:call(?SERVER, {set_datetime, DateTime}, infinity).
 
+%% @doc Reset reference datetime to current epoch datetime
+-spec reset_datetime() -> ok | {error, term()}.
+reset_datetime() ->
+    gen_server:call(?SERVER, reset_datetime, infinity).
+
 %% @doc sets the date-time with the erlcron on all nodes
--spec multi_set_datetime([node()], calendar:datetime()) -> ok.
+-spec multi_set_datetime([node()], calendar:datetime()) -> ok | {error, term()}.
 multi_set_datetime(Nodes, DateTime={_,_}) ->
     gen_server:multi_call(Nodes, ?SERVER, {set_datetime, DateTime}).
 
@@ -59,34 +81,24 @@ multi_set_datetime(Nodes, DateTime={_,_}) ->
 
 %% @private
 init([]) ->
-    DateTime = erlang:localtime(),
-    {ok, #state{reference_datetime=DateTime,
-                datetime_at_reference=ecrn_util:epoch_seconds()}}.
+    DateTime = erlang:universaltime(),
+    {ok, #state{ref_time=DateTime,
+                epoch_at_ref=ecrn_util:epoch_milliseconds()}}.
 
 %% @private
-handle_call({cancel, AlarmRef}, _From, State) ->
-    {reply, internal_cancel(AlarmRef), State};
-handle_call(get_datetime, _From, State = #state{reference_datetime = DateTime,
-                                                datetime_at_reference = Actual}) ->
+handle_call(get_datetime, _From, State = #state{ref_time    = DateTime,
+                                                epoch_at_ref = Actual}) ->
     {reply, {DateTime, Actual}, State};
 handle_call({set_datetime, DateTime}, _From, State) ->
-    NewState = State#state{reference_datetime=DateTime,
-                           datetime_at_reference=ecrn_util:epoch_seconds()},
-    case lists:foldl(fun({_, [Pid]}, Acc) ->
+    NewState = State#state{ref_time=DateTime,
+                           epoch_at_ref=ecrn_util:epoch_milliseconds()},
+    {reply, call_all(NewState), NewState};
 
-                             ecrn_agent:set_datetime(Pid, DateTime,
-                                                      NewState#state.datetime_at_reference),
-                             Acc;
-                        ({Ref, X}, Acc) when is_list(X) ->
-                             [Ref | Acc]
-                     end,
-                     [],
-                     ecrn_reg:get_all()) of
-        [] ->
-            {reply, ok, NewState};
-        ErrorRefs ->
-            {reply, {error, ErrorRefs}, NewState}
-    end.
+handle_call(reset_datetime, _From, State) ->
+    Now      = ecrn_util:epoch_milliseconds(),
+    DateTime = erlang:posixtime_to_universaltime(to_seconds(Now)),
+    NewState = State#state{ref_time=DateTime, epoch_at_ref=Now},
+    {reply, call_all(NewState), NewState}.
 
 %% @private
 handle_cast(_Msg, State) ->
@@ -107,10 +119,28 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-internal_cancel(AlarmRef) ->
-    case ecrn_reg:get(AlarmRef) of
-        undefined ->
-            undefined;
-        {ok, [Pid]} ->
-            ecrn_agent:cancel(Pid)
+%notify_all(#state{ref_time=DateTime, epoch_at_ref=Now}=State) ->
+%    [ecrn_agent:set_datetime(P, DateTime, Now, universal) || P <- ecrn_reg:get_all_pids()],
+%    State.
+
+call_all(#state{ref_time=DateTime, epoch_at_ref=Now}) ->
+    Res = lists:foldl(fun(P, A) ->
+        case ecrn_agent:set_datetime(P, DateTime, Now, universal) of
+            ok  ->
+                A;
+            {error, Err} ->
+                Ref = try
+                          ecrn_reg:get_refs(P)
+                      catch _:_ ->
+                          []
+                      end,
+                [{Ref, P, Err} | A]
+        end
+    end, [], ecrn_reg:get_all_pids()),
+    case Res of
+        [] -> ok;
+        _  -> {error, {failed_to_set_time, Res}}
     end.
+
+to_seconds(MilliSec) ->
+    MilliSec div 1000.

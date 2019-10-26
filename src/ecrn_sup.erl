@@ -28,19 +28,31 @@ start_link() ->
 
 %% @private
 init([]) ->
-    RestartStrategy = one_for_one,
-    MaxRestarts = 3,
-    MaxSecondsBetweenRestarts = 10,
-    SupFlags = {RestartStrategy,
-                MaxRestarts,
-                MaxSecondsBetweenRestarts},
+    SupFlags = #{
+        strategy  => one_for_one,
+        intensity => application:get_env(erlcron, sup_intensity, 3),
+        period    => application:get_env(erlcron, sup_period,   10)
+    },
 
-    ChildSup =  {ecrn_cron_sup, {ecrn_cron_sup, start_link, []},
-                 permanent, 1000, supervisor, [ecrn_cron_sup]},
-    RegistrationServer  =  {ecrn_reg_server, {ecrn_reg, start_link, []},
-                            permanent, 1000, worker, [ecrn_reg]},
-    BroadcastServer  =  {ecrn_control, {ecrn_control, start_link, []},
-                         permanent, 1000, worker, [ecrn_control]},
+    ChildSup     = #{id       => ecrn_cron_sup,
+                     start    => {ecrn_cron_sup, start_link, []},
+                     restart  => permanent,
+                     shutdown => 1000,
+                     type     => supervisor,
+                     modules  => [ecrn_cron_sup]},
 
+    RegServer    = #{id       => ecrn_reg,
+                     start    => {ecrn_reg, start_link, []},
+                     restart  => permanent,
+                     shutdown => 1000,
+                     type     => worker,
+                     modules  => [ecrn_reg]},
 
-    {ok, {SupFlags, [ChildSup, RegistrationServer, BroadcastServer]}}.
+    CtrlServer   = #{id       => ecrn_control,
+                     start    => {ecrn_control, start_link, []},
+                     restart  => permanent,
+                     shutdown => 1000,
+                     type     => worker,
+                     modules  => [ecrn_control]},
+
+    {ok, {SupFlags, [ChildSup, RegServer, CtrlServer]}}.
