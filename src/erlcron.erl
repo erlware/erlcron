@@ -14,6 +14,7 @@
          epoch/0,
          epoch_seconds/0,
          datetime/0,
+         ref_datetime/0,
          set_datetime/1,
          reset_datetime/0,
          get_all_jobs/0,
@@ -140,25 +141,33 @@ cancel(JobRef) ->
     ecrn_control:cancel(JobRef).
 
 %% @doc
-%% Get the current date time in seconds since epoch.
--spec epoch() -> erlcron:milliseconds().
+%% Get the current date time in seconds millisince epoch.
+-spec epoch() -> milliseconds().
 epoch() ->
     ecrn_util:epoch_milliseconds().
 
 %% @doc
-%% Get the current date time in milliseconds since epoch.
--spec epoch_seconds() -> erlcron:seconds().
+%% Get the current date time in seconds since epoch.
+-spec epoch_seconds() -> seconds().
 epoch_seconds() ->
     ecrn_util:epoch_seconds().
 
 %% @doc
-%%  Get the current date time of the running erlcron system.
--spec datetime() -> {calendar:datetime(), seconds()}.
+%% Get the current date time of the erlcron system adjusted to reference.
+%% 
+-spec datetime() -> {calendar:datetime(), milliseconds()}.
 datetime() ->
     ecrn_control:datetime().
 
 %% @doc
-%%  Set the current date time of the running erlcron system.
+%% Get the reference date time of the erlcron system.
+%% 
+-spec ref_datetime() -> {calendar:datetime(), milliseconds()}.
+ref_datetime() ->
+    ecrn_control:ref_datetime().
+
+%% @doc
+%% Set the current date time of the running erlcron system.
 -spec set_datetime(calendar:datetime()) -> ok.
 set_datetime({D,T} = DateTime) when tuple_size(D)==3, tuple_size(T)==3 ->
     ecrn_control:set_datetime(DateTime).

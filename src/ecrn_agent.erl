@@ -120,7 +120,7 @@ next_run(Pid) ->
 -spec validate(erlcron:run_when()) -> ok | {error, term()}.
 validate(Spec) ->
     State = #state{job=undefined, alarm_ref=undefined},
-    {DateTime, ActualMsec} = ecrn_control:datetime(universal),
+    {DateTime, ActualMsec} = ecrn_control:ref_datetime(universal),
     NewState = set_internal_time(State, DateTime, ActualMsec),
     try
         NormalSpec = normalize(Spec, DateTime),
@@ -213,7 +213,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 normalize_when(When) ->
-    {DateTime, ActualMsec} = ecrn_control:datetime(universal),
+    {DateTime, ActualMsec} = ecrn_control:ref_datetime(universal),
     Sched = normalize(When, erlang:universaltime_to_localtime(DateTime)),
     {Sched, DateTime, ActualMsec}.
 

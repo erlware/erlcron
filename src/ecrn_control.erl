@@ -14,6 +14,8 @@
          cancel/1,
          datetime/0,
          datetime/1,
+         ref_datetime/0,
+         ref_datetime/1,
          set_datetime/1,
          set_datetime/2,
          reset_datetime/0,
@@ -42,17 +44,33 @@ start_link() ->
 cancel(AlarmRef) ->
     ecrn_reg:cancel(AlarmRef).
 
-%% @doc Returns universal time.
+%% @doc
+%% Returns current datetime with reference adjustment in universal time zone.
 -spec datetime() -> {calendar:datetime(), erlcron:milliseconds()}.
 datetime() ->
-    gen_server:call(?SERVER, get_datetime).
+    gen_server:call(?SERVER, datetime).
 
+%% @doc
+%% Returns current datetime with reference adjustment in universal/local time zone.
 -spec datetime(local|universal) -> {calendar:datetime(), erlcron:milliseconds()}.
 datetime(universal) ->
     datetime();
 datetime(local) ->
     {DT, Epoch} = datetime(),
-    {calendar:universal_time_to_local_time(DT), Epoch}.
+    {erlang:universaltime_to_localtime(DT), Epoch}.
+
+%% @doc Returns reference datetime in universal time zone.
+-spec ref_datetime() -> {calendar:datetime(), erlcron:milliseconds()}.
+ref_datetime() ->
+    gen_server:call(?SERVER, ref_datetime).
+
+%% @doc Returns reference datetime in universal or local time zone.
+-spec ref_datetime(local|universal) -> {calendar:datetime(), erlcron:milliseconds()}.
+ref_datetime(universal) ->
+    ref_datetime();
+ref_datetime(local) ->
+    {DT, Epoch} = ref_datetime(),
+    {erlang:universaltime_to_localtime(DT), Epoch}.
 
 %% @doc sets the date-time for the erlcron
 -spec set_datetime(calendar:datetime()) -> ok | {error, term()}.
@@ -86,7 +104,17 @@ init([]) ->
                 epoch_at_ref=ecrn_util:epoch_milliseconds()}}.
 
 %% @private
-handle_call(get_datetime, _From, State = #state{ref_time    = DateTime,
+handle_call(datetime, _From, State = #state{ref_time = DateTime,
+                                            epoch_at_ref = Actual}) ->
+    DT     = erlang:universaltime_to_posixtime(DateTime),
+    Now    = ecrn_util:epoch_milliseconds(),
+    Diff   = Now - Actual,
+    DiffS  = to_seconds(Diff),
+    RefNow = DT   + Diff,
+    Msecs  = Diff - DiffS*1000,
+    NowDT  = erlang:posixtime_to_universaltime(RefNow),
+    {reply, {NowDT, RefNow*1000 + Msecs}, State};
+handle_call(ref_datetime, _From, State = #state{ref_time = DateTime,
                                                 epoch_at_ref = Actual}) ->
     {reply, {DateTime, Actual}, State};
 handle_call({set_datetime, DateTime}, _From, State) ->
