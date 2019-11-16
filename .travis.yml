@@ -1,12 +1,9 @@
 sudo: false
 language: erlang
 otp_release:
-       - R15B03
-       - R16B03-1
-       - 17.5
-       - 18.0
-       - 18.1
-       - 19.0
+       - 20.0
+       - 21.0
+       - 22.0
 
 before_script: "make get-deps"
 script: "make test"
