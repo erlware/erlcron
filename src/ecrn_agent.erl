@@ -591,6 +591,7 @@ resolve_time(Other) ->
 resolve_dur({Hour, H}) when H==h; H==hr  -> to_milliseconds(Hour * 3600);
 resolve_dur({Min,  M}) when M==m; M==min -> to_milliseconds(Min  * 60);
 resolve_dur({Sec,  S}) when S==s; S==sec -> to_milliseconds(Sec);
+resolve_dur({Mil,  M}) when M==ms; M==milli; M==millisecond -> Mil;
 resolve_dur(Other)                       -> throw({invalid_duration, Other}).
 
 %% @doc Returns the number of the given day of the week. See the calendar
@@ -717,6 +718,8 @@ normalize_test() ->
     ?assertEqual({once,{absolute,7384000}},         normalize({once, {2,3,4}}, Date)),
     ?assertEqual({daily,[{50400000,50400000,0}]},   normalize({daily, {2,pm}}, Date)),
     ?assertEqual({daily,[{0,86399000,20000}]},      normalize({daily, {every, {20,s}}}, Date)),
+    ?assertEqual({daily,[{0,86399000,200}]},        normalize({daily, {every, {200,ms}}}, Date)),
+    ?assertEqual({daily,[{0,86399000,2000}]},       normalize({daily, {every, {2000,millisecond}}}, Date)),
     ?assertEqual({daily,[{3600000,3600000,0},{7200000,7200000,0}]},
                  normalize({daily, [{2,am},{1,am}]}, Date)),
     ?assertEqual({daily,[{0,86399000,5000},{0,86399000,20000}]},
