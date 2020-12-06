@@ -435,7 +435,7 @@ until_next_time2(State, {monthly, When, Period}) ->
 
 until_next_time_from_now(State, Period, 0, NextDays) when is_function(NextDays, 0) ->
     CurrentTime = current_time(State),
-    F = fun() -> until_days_from_now(State, Period, NextDays()-1) end,
+    F = fun() -> until_days_from_now(State, Period, NextDays()) end,
     case last_time(Period) of
         T when CurrentTime > T ->
             F();
