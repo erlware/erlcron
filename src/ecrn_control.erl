@@ -110,7 +110,7 @@ handle_call(datetime, _From, State = #state{ref_time = DateTime,
     Now    = ecrn_util:epoch_milliseconds(),
     Diff   = Now - Actual,
     DiffS  = to_seconds(Diff),
-    RefNow = DT   + Diff,
+    RefNow = DT   + DiffS,
     Msecs  = Diff - DiffS*1000,
     NowDT  = erlang:posixtime_to_universaltime(RefNow),
     {reply, {NowDT, RefNow*1000 + Msecs}, State};
