@@ -67,7 +67,7 @@
 %%%===================================================================
 
 %% @doc
-%% Starts the server with the apropriate job and the appropriate ref
+%% Starts the server with the appropriate job and the appropriate ref
 -spec start_link(erlcron:job_ref(), erlcron:job()) ->
                              ignore | {error, Reason::term()} | {ok, pid()}.
 start_link(JobRef, {When, _Task} = Job) when is_reference(JobRef) ->

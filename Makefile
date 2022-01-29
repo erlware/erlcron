@@ -67,7 +67,7 @@ shell: get-deps compile
 # You often want *rebuilt* rebar tests to be available to the
 # shell you have to call eunit (to get the tests
 # rebuilt). However, eunit runs the tests, which probably
-# fails (thats probably why You want them in the shell). This
+# fails (that's probably why You want them in the shell). This
 # runs eunit but tells make to ignore the result.
 	- @$(REBAR) skip_deps=true eunit
 	@$(ERL) $(ERLFLAGS)

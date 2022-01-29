@@ -92,7 +92,7 @@ cron(JobRef, Job) when (is_atom(JobRef) orelse is_reference(JobRef))
     ecrn_cron_sup:add_job(JobRef, Job).
 
 %% @doc
-%% Run the specified job once after the amount of time specifed.
+%% Run the specified job once after the amount of time specified.
 -spec at(cron_time() | seconds(), function()) -> job_ref().
 at(When, Fun) ->
     at(make_ref(), When, Fun).
@@ -102,7 +102,7 @@ at(JobRef, When, Fun) ->
     cron(JobRef, {{once, When}, Fun}).
 
 %% @doc
-%% Convienience method to specify a job run to run on a daily basis
+%% Convenience method to specify a job run to run on a daily basis
 %% at a specific time.
 -spec daily(cron_time() | seconds(), function()) ->  job_ref().
 daily(When, Fun) ->
@@ -113,7 +113,7 @@ daily(JobRef, When, Fun) ->
     cron(JobRef, {{daily, When}, Fun}).
 
 %% @doc
-%% Convienience method to specify a job run to run on a weekly basis
+%% Convenience method to specify a job run to run on a weekly basis
 %% at a specific time.
 -spec weekly(dow(), cron_time() | seconds(), function()) ->  job_ref().
 weekly(DOW, When, Fun) ->
@@ -124,7 +124,7 @@ weekly(JobRef, DOW, When, Fun) ->
     cron(JobRef, {{weekly, DOW, When}, Fun}).
 
 %% @doc
-%% Convienience method to specify a job run to run on a weekly basis
+%% Convenience method to specify a job run to run on a weekly basis
 %% at a specific time.
 -spec monthly(dom(), cron_time() | seconds(), function()) -> job_ref().
 monthly(DOM, When, Fun) ->

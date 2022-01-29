@@ -6,7 +6,7 @@ systems, with the ability to arbitrarily set the time and place along
 with fastforwarding through tests. See erlcron.erl for more
 documentation.
 
-The synax of a job description is quite different from crontab.  It is
+The syntax of a job description is quite different from crontab.  It is
 (in this author's opinion) easier to read and is much more in keeping
 with the Erlang tradition.  It is not quite as expressive as cron but
 this can be compensated for by adding multiple jobs.
@@ -114,7 +114,7 @@ Cancel a running job.
 erlcron:cancel(JobRef).
 ```
 
-Get the current reference (univeral) date time of the system.
+Get the current reference (universal) date time of the system.
 
 ```erlang
 erlcron:datetime().
@@ -143,7 +143,7 @@ as the time rolls forward.
 erlcron:multi_set_datetime(Nodes, DateTime).
 ```
 
-The application cron can be pre-configured throught environment variables
+The application cron can be pre-configured through environment variables
 in the config file that all applications can load in the Erlang VM start.
 The app.config file can be as follow:
 
