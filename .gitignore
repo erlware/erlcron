@@ -1,4 +1,6 @@
 ebin/*.beam
 ebin/*.app
-.*
 deps/*
+_build
+rebar3
+TEST*.xml
