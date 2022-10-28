@@ -154,14 +154,14 @@ epoch_seconds() ->
 
 %% @doc
 %% Get the current date time of the erlcron system adjusted to reference.
-%% 
+%%
 -spec datetime() -> {calendar:datetime(), milliseconds()}.
 datetime() ->
     ecrn_control:datetime().
 
 %% @doc
 %% Get the reference date time of the erlcron system.
-%% 
+%%
 -spec ref_datetime() -> {calendar:datetime(), milliseconds()}.
 ref_datetime() ->
     ecrn_control:ref_datetime().
@@ -185,13 +185,17 @@ get_all_jobs() ->
 
 %% @doc
 %% Set the current date time of the erlcron system running on different nodes.
--spec multi_set_datetime(calendar:datetime()) -> ok.
+-spec multi_set_datetime(calendar:datetime()) -> {Replies, BadNodes} when
+    Replies :: [{node(), ok | {error, term()}}],
+    BadNodes :: [node()].
 multi_set_datetime({D,T} = DateTime) when tuple_size(D)==3, tuple_size(T)==3 ->
     ecrn_control:multi_set_datetime([node()|nodes()], DateTime).
 
 %% @doc
 %% Set the current date time of the erlcron system running on the
 %% specified nodes
--spec multi_set_datetime([node()], calendar:datetime()) -> ok.
+-spec multi_set_datetime([node()], calendar:datetime()) -> {Replies, BadNodes} when
+    Replies :: [{node(), ok | {error, term()}}],
+    BadNodes :: [node()].
 multi_set_datetime(Nodes, DateTime) when is_list(Nodes), tuple_size(DateTime)==2 ->
     ecrn_control:multi_set_datetime(Nodes, DateTime).

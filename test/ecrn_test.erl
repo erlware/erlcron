@@ -102,7 +102,7 @@ travel_back_in_time() ->
     erlcron:set_datetime(Past),
     {ExpectedDateTime, _} = erlcron:datetime(),
     ExpectedSeconds = calendar:datetime_to_gregorian_seconds(ExpectedDateTime),
-    ?assertMatch(true, ExpectedSeconds >= calendar:datetime_to_gregorian_seconds(Past)),
+    ?assertMatch(true, ExpectedSeconds =< calendar:datetime_to_gregorian_seconds(Past)),
     ?assertMatch(true, ExpectedSeconds < Seconds).
 
 
