@@ -16,6 +16,7 @@
          datetime/0,
          ref_datetime/0,
          set_datetime/1,
+         set_datetime/2,
          reset_datetime/0,
          get_all_jobs/0,
          multi_set_datetime/1,
@@ -61,11 +62,21 @@
                     | {weekly, dow(), period()}
                     | {monthly, dom()|[dom()], period()}.
 
--type  job()      :: {run_when(), callable()}.
+-type  job()      :: {run_when(), callable()}
+                   | {run_when(), callable(), job_opts()}.
 
 %% should be opaque but dialyzer does not allow it
 -type job_ref()   :: reference() | atom().
 
+-type job_opts()  :: #{hostnames => [binary()|string()]}.
+%% Job options
+%% <dl>
+%% <dt>{hostnames, [Hostname]}</dt>
+%% <dd>List of hostnames where the job is allowed to run</dd>
+%% </dl>
+
+-type cron_opts() :: job_opts().
+%% Cron default options applicable to all jobs. See job_opts().
 
 %%%===================================================================
 %%% API
@@ -84,12 +95,21 @@ validate(Spec) ->
 
 -spec cron(job()) -> job_ref().
 cron(Job) ->
-    cron(make_ref(), Job).
+    cron(make_ref(), Job, #{}).
 
--spec cron(job_ref(), job()) -> job_ref().
+-spec cron(job()|job_ref(), job()|cron_opts()) -> job_ref().
+cron(Job, DefOpts) when is_map(DefOpts) ->
+    cron(make_ref(), Job, DefOpts);
+
 cron(JobRef, Job) when (is_atom(JobRef) orelse is_reference(JobRef))
                      , is_tuple(Job) ->
-    ecrn_cron_sup:add_job(JobRef, Job).
+    cron(JobRef, Job, #{}).
+
+%% Returns false if the job is not permitted to run on the current host
+-spec cron(job_ref(), job(), job_opts()) -> job_ref() | false.
+cron(JobRef, Job, Opts) when (is_atom(JobRef) orelse is_reference(JobRef))
+                           , is_tuple(Job), is_map(Opts) ->
+    ecrn_cron_sup:add_job(JobRef, Job, Opts).
 
 %% @doc
 %% Convenience method to specify a job to run once at the given time.
@@ -167,10 +187,17 @@ ref_datetime() ->
     ecrn_control:ref_datetime().
 
 %% @doc
-%% Set the current date time of the running erlcron system.
+%% Set the current date time of the running erlcron system using local time.
 -spec set_datetime(calendar:datetime()) -> ok.
-set_datetime({D,T} = DateTime) when tuple_size(D)==3, tuple_size(T)==3 ->
-    ecrn_control:set_datetime(DateTime).
+set_datetime(DateTime) ->
+    set_datetime(DateTime, local).
+
+%% @doc
+%% Set the current date time of the running erlcron system using either local
+%% or universal time. The `TZ` parameter must contain an atom `local|universal`.
+-spec set_datetime(calendar:datetime(), local|universal) -> ok.
+set_datetime({D,T} = DateTime, TZ) when tuple_size(D)==3, tuple_size(T)==3 ->
+    ecrn_control:set_datetime(DateTime, TZ).
 
 %% @doc
 %% Reset the reference datetime of erlcron system to current epoch time.

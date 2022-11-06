@@ -51,10 +51,13 @@ stop(_State) ->
     ok.
 
 setup() ->
-    case application:get_env(erlcron, crontab) of 
+    case application:get_env(erlcron, crontab) of
         {ok, Crontab} ->
+            Def = application:get_env(erlcron, defaults, #{}),
+            is_map(Def) orelse
+              erlang:error("erlcron/defaults config must be a map!"),
             lists:foreach(fun(CronJob) ->
-                erlcron:cron(CronJob) 
+                erlcron:cron(CronJob, Def)
             end, Crontab);
         undefined ->
             ok

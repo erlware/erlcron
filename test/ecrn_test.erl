@@ -30,6 +30,8 @@ cron_test_() ->
        ?FuncTest(cancel_alarm),
        ?FuncTest(big_time_jump),
        ?FuncTest(cron),
+       ?FuncTest(cron_run_job_on_host),
+       ?FuncTest(cron_skip_job_on_host),
        ?FuncTest(validation)
       ]},
       {timeout, 30, [
@@ -99,12 +101,11 @@ big_time_jump() ->
 travel_back_in_time() ->
     Seconds = seconds_now(),
     Past = {{2000,1,1},{12,0,0}},
-    erlcron:set_datetime(Past),
+    erlcron:set_datetime(Past, universal),
     {ExpectedDateTime, _} = erlcron:datetime(),
     ExpectedSeconds = calendar:datetime_to_gregorian_seconds(ExpectedDateTime),
     ?assertMatch(true, ExpectedSeconds =< calendar:datetime_to_gregorian_seconds(Past)),
     ?assertMatch(true, ExpectedSeconds < Seconds).
-
 
 %% Time jumps ahead one day so we should see the alarms from both days.
 cron() ->
@@ -122,6 +123,25 @@ cron() ->
     erlcron:cron(Job),
 
     ?assertMatch(1, collect(ack, 2500, 1)).
+
+%% Run job on this host
+cron_run_job_on_host() ->
+    {ok, Host} = inet:gethostname(),
+    erlcron:set_datetime({{2000, 1, 1}, {12, 59, 59}}),
+    Self = self(),
+    Ref  = make_ref(),
+    Job  = {{once, {1, 00, pm}}, fun(_,_) -> Self ! Ref end, #{hostnames => [Host]}},
+
+    ?assert(is_reference(erlcron:cron(Job))),
+    ?assertMatch(1, collect(Ref, 2500, 1)).
+
+%% Don't add job when executed on a disallowed host
+cron_skip_job_on_host() ->
+    {ok, Host} = inet:gethostname(),
+    Self = self(),
+    Ref  = make_ref(),
+    Job  = {{once, {1, 00, pm}}, fun(_,_) -> Self ! Ref end, #{hostnames => [Host ++ "123"]}},
+    ?assertEqual(false, erlcron:cron(Job)).
 
 validation() ->
     erlcron:set_datetime({{2000,1,1}, {15,0,0}}),

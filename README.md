@@ -153,12 +153,20 @@ The app.config file can be as follow:
         {crontab, [
             {{once, {3, 30, pm}}, {io, fwrite, ["Hello, world!~n"]}},
 
-            {{once, {12, 23, 32}}, {io, fwrite, ["Hello, world!~n"]}},
+            %% A job may be specified to be run only if the current host
+            %% is in the list of given hostnames.  If default crontab
+            %% options are provided in the `defaults` setting,
+            %% the job-specific options will override corresponding
+            %% default options.
+            {{once, {12, 23, 32}}, {io, fwrite, ["Hello, world!~n"]}, #{hostnames => ["somehost"]},
 
             {{daily, {every, {23, sec}, {between, {3, pm}, {3, 30, pm}}}},
              {io, fwrite, ["Hello, world!~n"]}}
+        ]},
 
-        ]}
+        %% Instead of specifying individual options for each job, you can
+        %% define default options here.
+        {defaults, #{hostnames => ["myhost"]}}
     ]}
 ].
 ```
