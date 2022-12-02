@@ -57,7 +57,16 @@ setup() ->
             is_map(Def) orelse
               erlang:error("erlcron/defaults config must be a map!"),
             lists:foreach(fun(CronJob) ->
-                erlcron:cron(CronJob, Def)
+                case erlcron:cron(CronJob, Def) of
+                    ok ->
+                        ok;
+                    already_started ->
+                        ok;
+                    ignored ->
+                        ok;
+                    {error, Reason} ->
+                        erlang:error({failed_to_add_cron_job, CronJob, Reason})
+                end
             end, Crontab);
         undefined ->
             ok
