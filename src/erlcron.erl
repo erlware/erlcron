@@ -77,14 +77,14 @@ cron(Job) ->
 %% @doc
 %%  Convienience method to specify a job run to run on a daily basis
 %%  at a specific time.
--spec at(cron_time() | seconds(), fun((job_ref(), calendar:datetime()) -> term())) -> job_ref().
+-spec at(cron_time() | seconds(), callable()) -> job_ref().
 at(When, Fun) ->
     Job = {{daily, When}, Fun},
     cron(Job).
 
 %% @doc
 %%   Run the specified job once after the amount of time specifed.
--spec once(cron_time() | seconds(), fun((job_ref(), calendar:datetime()) -> term())) ->  job_ref().
+-spec once(cron_time() | seconds(), callable()) ->  job_ref().
 once(When, Fun) ->
     Job = {{once, When}, Fun},
     cron(Job).
