@@ -235,15 +235,8 @@ process_timeout(#state{last_time=LastTime, next_run=NextRun, last_run=LastRun}=S
     reply_and_wait(Reply, State).
 
 do_job_run(#state{job_ref=Ref, next_run=Time, job={When, Job}, opts=Opts} = S) ->
-    case Opts of
-        #{on_job_start := {M,F}} ->
-            M:F(Ref);
-        #{on_job_start := F} when is_function(F, 1) ->
-            F(Ref);
-        _ ->
-            ok
-    end,
-    execute(Job, Ref, Time, maps:get(on_job_end, Opts, undefined)),
+    Res  = do_job_start(Ref, maps:get(on_job_start, Opts, undefined)),
+    Res /= ignore andalso execute(Job, Ref, Time, maps:get(on_job_end, Opts, undefined)),
     case When of
         {once, _} ->
             stop;
@@ -251,6 +244,10 @@ do_job_run(#state{job_ref=Ref, next_run=Time, job={When, Job}, opts=Opts} = S) -
             S#state.fast_forward orelse timer:sleep(1),
             noreply
     end.
+
+do_job_start(_,   undefined)                -> ok;
+do_job_start(Ref, {M,F})                    -> M:F(Ref);
+do_job_start(Ref, F) when is_function(F, 1) -> F(Ref).
 
 execute(Job, Ref, Time, OnEnd) when is_function(Job, 2) ->
     safe_spawn(Ref, fun() -> Job(Ref, Time) end, OnEnd);

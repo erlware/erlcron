@@ -172,7 +172,9 @@ The app.config file can be as follow:
             %% Limit jobs to run only on the given list of hosts
             hostnames    => ["myhost"],
 
-            %% Function `fun((Ref) -> ok)` to call before a job is started
+            %% Function `fun((Ref) -> ignore | any())` to call before a job is started.
+            %% If the function returns `ignore`, the job will not be executed, and the
+            %% `on_job_end` callback will not be executed.
             on_job_start => {some_module, function},
 
             %% Function `fun((Ref, Status :: {ok, Result}|{error, {Reason, StackTrace}}) -> ok)`

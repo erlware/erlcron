@@ -24,6 +24,10 @@
 
 -export_type([job/0,
               job_ref/0,
+              job_opts/0,
+              cron_opts/0,
+              job_start/0,
+              job_end/0,
               run_when/0,
               callable/0,
               dow/0,
@@ -69,15 +73,21 @@
 -type job_ref()   :: reference() | atom() | binary().
 %% A job reference.
 
+-type job_start() :: fun((JobRef::job_ref()) -> ignore | any()).
+%% A function to be called before a job is started. If it returns the `ignore'
+%% atom, the job function will not be executed.
+
+-type job_end()   :: fun((JobRef::job_ref(),
+                         Res :: {ok, term()} | {error, {Reason::term(), Stack::list()}})
+                       -> term()).
+%% A function to be called after a job ended. The function is passed the
+%% job's result.
+
 -type job_opts()  ::
     #{hostnames    => [binary()|string()],
       id           => term(),
-      on_job_start => {Mod::atom(), Fun::atom()}
-                      | fun((JobRef::job_ref()) -> any()),
-      on_job_end   => {Mod::atom(), Fun::atom()}
-                      | fun((JobRef::job_ref(),
-                             Res :: {ok, term()} | {error, {Reason::term(), Stack::list()}})
-                            -> term())
+      on_job_start => {Mod::atom(), Fun::atom()} | job_start(),
+      on_job_end   => {Mod::atom(), Fun::atom()} | job_end()
     }.
 %% Job options:
 %% <dl>

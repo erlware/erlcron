@@ -93,13 +93,23 @@ start_stop_funs() ->
     ?assertMatch(1, collect({finish, test1, {ok, 1234}}, 1500, 1)),
 
     erlcron:set_datetime({Day,{8,0,0}}),
-    Len  = length(lists:seq(1, rand:uniform(10)+2)),
-    Ref2 = erlcron:at(test2, AlarmTimeOfDay, fun(_, _) -> 1 = Len end, Opts),
+    Opts2 = #{on_job_start => fun(Ref)      -> Self ! {ignored, Ref}, ignore end,
+              on_job_end   => fun(Ref, Res) -> Self ! {finish,  Ref, Res}    end},
+    Ref2  = erlcron:at(test2, AlarmTimeOfDay, fun(_, _) -> timer:sleep(60000), Self ! ack, 1000 end, Opts2),
 
     ?assertEqual(test2, Ref2),
-    ?assertMatch(1, collect({start, test2}, 1500, 1)),
+    ?assertMatch(1, collect({ignored, test2}, 1500, 1)),
+    ?assertMatch(0, collect({finish, test2, {ok, 1000}}, 125, 1)),
+    ?assertEqual(undefined, ecrn_reg:get(test2)),
+
+    erlcron:set_datetime({Day,{8,0,0}}),
+    Len3 = length(lists:seq(1, rand:uniform(10)+2)),
+    Ref3 = erlcron:at(test3, AlarmTimeOfDay, fun(_, _) -> 1 = Len3 end, Opts),
+
+    ?assertEqual(test3, Ref3),
+    ?assertMatch(1, collect({start, test3}, 1500, 1)),
     ?assertMatch(0, collect(1, 125, 1)),
-    ?assertMatch({finish, test2, {error,{{badmatch, _}, [_|_]}}}, receive _M -> _M after 1500 -> timeout end).
+    ?assertMatch({finish, test3, {error,{{badmatch, _}, [_|_]}}}, receive _M -> _M after 1500 -> timeout end).
 
 %% Time jumps ahead one day so we should see the alarms from both days.
 big_time_jump() ->
