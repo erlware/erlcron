@@ -53,8 +53,8 @@
 -type dow_day()    :: mon | tue | wed | thu | fri | sat | sun.
 -type dow()        :: dow_day() | [dow_day()].
 -type callable()   :: {M :: module(), F :: atom(), A :: [term()]} |
-                      fun(() -> ok) |
-                      fun((JobRef::atom()|reference(), calendar:datetime()) -> ok).
+                      fun(() -> term()) |
+                      fun((JobRef::atom()|reference(), calendar:datetime()) -> term()).
 -type run_when()   :: {once, cron_time()}
                     | {once, seconds()}
                     | {daily, period()}
@@ -92,8 +92,8 @@ cron(JobRef, Job) when (is_atom(JobRef) orelse is_reference(JobRef))
     ecrn_cron_sup:add_job(JobRef, Job).
 
 %% @doc
-%% Run the specified job once after the amount of time specified.
--spec at(cron_time() | seconds(), function()) -> job_ref().
+%% Convenience method to specify a job to run once at the given time.
+-spec at(cron_time() | seconds(), callable()) -> job_ref().
 at(When, Fun) ->
     at(make_ref(), When, Fun).
 

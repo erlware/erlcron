@@ -45,7 +45,7 @@ Cron Job Description Examples:
     {io, fwrite, ["Hello, world!~n"]}}
 
 {{daily, {3, 30, pm}},
-    fun() -> io:fwrite("It's three thirty~n") end}
+    fun(_JobRef, _DateTime) -> io:fwrite("It's three thirty~n") end}
 
 {{daily, [{1, 10, am}, {1, 07, 30, am}]},
     {io, fwrite, ["Bing~n"]}}
@@ -54,7 +54,7 @@ Cron Job Description Examples:
     {io, fwrite, ["It's 2 Thursday morning~n"]}}
 
 {{weekly, wed, {2, am}},
-    {fun() -> io:fwrite("It's 2 Wednesday morning~n") end}
+    {fun(_JobRef, _DateTime) -> io:fwrite("It's 2 Wednesday morning~n") end}
 
 {{weekly, [tue,wed], {2, am}},
     {fun(_, Now) -> io:format("Now is ~p~n", [Now]) end}
