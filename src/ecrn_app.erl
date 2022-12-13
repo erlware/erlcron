@@ -22,9 +22,9 @@
 %% @doc
 %%  start up the app and all the dependent apps.
 manual_start() ->
-    application:start(crypto),
+    %application:start(crypto),
     application:start(eunit),
-    application:start(sasl),
+    %application:start(sasl),
     application:start(erlcron).
 
 %% @doc

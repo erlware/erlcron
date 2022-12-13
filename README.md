@@ -6,7 +6,7 @@ systems, with the ability to arbitrarily set the time and place along
 with fastforwarding through tests. See erlcron.erl for more
 documentation.
 
-The synax of a job description is quite different from crontab.  It is
+The syntax of a job description is quite different from crontab.  It is
 (in this author's opinion) easier to read and is much more in keeping
 with the Erlang tradition.  It is not quite as expressive as cron but
 this can be compensated for by adding multiple jobs.
@@ -19,17 +19,19 @@ does.  Each job is assigned to a single (Erlang) process.  The time
 until it is to run next is calculated, and the process sleeps for
 exactly that long.
 
-Unlike cron's one-minute resolution, erlcron has a 2-second resolution
-(actually 1 second, but after running the job, the process waits an
-extra second to avoid accidentally running it more than once.)
+Unlike cron's one-minute resolution, erlcron has a millisecond resolution.
 
-It does not handle Daylight Savings Time (or other cases when the
-system clock is altered) gracefully, and it is recommended that it be
-stopped and restarted on such occasions.
+It does handle Daylight Savings Time changes (but not the cases when the
+system clock is altered by small increments, in which case the next
+execution of a scheduled task may be imprecise).
 
 Cron Job Description Examples:
 
 ```erlang
+{{once, {3, 30, pm}, fun() -> io:fwrite("Hello world!~n") end}
+
+{{once, {3, 30, pm}, fun(JobRef, CurrDateTime) -> io:fwrite("Hello world!~n") end}
+
 {{once, {3, 30, pm}},
     {io, fwrite, ["Hello, world!~n"]}}
 
@@ -54,14 +56,30 @@ Cron Job Description Examples:
 {{weekly, wed, {2, am}},
     {fun(_JobRef, _DateTime) -> io:fwrite("It's 2 Wednesday morning~n") end}
 
+{{weekly, [tue,wed], {2, am}},
+    {fun(_, Now) -> io:format("Now is ~p~n", [Now]) end}
+
 {{weekly, fri, {2, am}},
     {io, fwrite, ["It's 2 Friday morning~n"]}}
 
 {{monthly, 1, {2, am}},
     {io, fwrite, ["First of the month!~n"]}}
 
+{{monthly, [1, 7, 14], {2, am}},
+    {io, fwrite, ["Every 1st, 7th, 14th of the month!~n"]}}
+
+{{monthly, 0, {2, am}},
+    {io, fwrite, ["Last day of the month!~n"]}}
+
+{{monthly, [0, -1], {2, am}},
+    {io, fwrite, ["Last two days of the month!~n"]}}
+
 {{monthly, 4, {2, am}},
     {io, fwrite, ["Fourth of the month!~n"]}}
+
+%% Days of month less or equal to zero are subtracted from the end of the month
+{{monthly, 0, {2, am}},
+    {io, fwrite, ["Last day of the month!~n"]}}
 ```
 
 Adding a cron to the system:
@@ -73,15 +91,21 @@ Job = {{weekly, thu, {2, am}},
 erlcron:cron(Job).
 ```
 
+Cron jobs can be given named atom references:
+
+```erlang
+erlcron:cron(test_job1, {{once, {3,pm}}, {io, fwrite, "It's 3pm"}}).
+```
+
 A simple way to add a daily cron:
 
-    erlcron:at({3, 30, pm}, Fun).
+    erlcron:daily({3, 30, pm}, Fun).
 
 A simple way to add a job that will be run once in the future. Where
 'once' is the number of seconds until it runs.
 
 ```erlang
-erlcron:once(300, Fun).
+erlcron:at(300, Fun).
 ```
 
 Cancel a running job.
@@ -90,7 +114,7 @@ Cancel a running job.
 erlcron:cancel(JobRef).
 ```
 
-Get the current date time of the system.
+Get the current reference (universal) date time of the system.
 
 ```erlang
 erlcron:datetime().
@@ -119,7 +143,7 @@ as the time rolls forward.
 erlcron:multi_set_datetime(Nodes, DateTime).
 ```
 
-The application cron can be pre-configured throught environment variables
+The application cron can be pre-configured through environment variables
 in the config file that all applications can load in the Erlang VM start.
 The app.config file can be as follow:
 
