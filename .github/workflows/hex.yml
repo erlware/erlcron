@@ -6,11 +6,14 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    steps:
-      - name: Check out
-        uses: actions/checkout@v2
+    container:
+      image: erlang:25.2
 
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.ref_name }}
       - name: Publish to Hex.pm
-        uses: erlangpack/github-action@v3
         env:
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
+        run:  rebar3 hex publish -r hexpm --yes --replace
