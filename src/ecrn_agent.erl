@@ -9,7 +9,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2,
+-export([start_link/3,
          cancel/1,
          next_run/1,
          get_datetime/1,
@@ -28,7 +28,8 @@
 -include("internal.hrl").
 
 -record(state, {job,
-                alarm_ref,
+                opts,
+                job_ref,
                 ref_epoch,
                 epoch_at_ref,
                 fast_forward=false,
@@ -68,14 +69,15 @@
 
 %% @doc
 %% Starts the server with the appropriate job and the appropriate ref
--spec start_link(erlcron:job_ref(), erlcron:job()) ->
+-spec start_link(erlcron:job_ref(), erlcron:job(), erlcron:job_opts()) ->
                              ignore | {error, Reason::term()} | {ok, pid()}.
-start_link(JobRef, {When, _Task} = Job) when is_reference(JobRef) ->
+start_link(JobRef, {When, _Task} = Job, JobOpts) when (is_reference(JobRef) orelse is_binary(JobRef))
+                                                    , is_map(JobOpts) ->
     {Sched, DateTime, ActualMsec} = normalize_when(When),
-    gen_server:start_link(?MODULE, [JobRef, Job, Sched, DateTime, ActualMsec], []);
-start_link(JobRef, {When, _Task} = Job) when is_atom(JobRef) ->
+    gen_server:start_link(?MODULE, [JobRef, Job, Sched, DateTime, ActualMsec, JobOpts], []);
+start_link(JobRef, {When, _Task} = Job, JobOpts) when is_atom(JobRef), is_map(JobOpts) ->
     {Sched, DateTime, ActualMsec} = normalize_when(When),
-    gen_server:start_link({local, JobRef}, ?MODULE, [JobRef, Job, Sched, DateTime, ActualMsec], []).
+    gen_server:start_link({local, JobRef}, ?MODULE, [JobRef, Job, Sched, DateTime, ActualMsec, JobOpts], []).
 
 -spec get_datetime(pid()) -> calendar:datetime().
 get_datetime(Pid) ->
@@ -119,7 +121,7 @@ next_run(Pid) ->
 %%  Validate that a run_when spec specified is correct.
 -spec validate(erlcron:run_when()) -> ok | {error, term()}.
 validate(Spec) ->
-    State = #state{job=undefined, alarm_ref=undefined},
+    State = #state{job=undefined, job_ref=undefined},
     {DateTime, ActualMsec} = ecrn_control:ref_datetime(universal),
     NewState = set_internal_time(State, DateTime, ActualMsec),
     try
@@ -136,9 +138,9 @@ validate(Spec) ->
 %%% gen_server callbacks
 %%%===================================================================
 %% @private
-init([JobRef, {When, Task}, Sched, DateTime, ActualMsec]) ->
+init([JobRef, {When, Task}, Sched, DateTime, ActualMsec, JobOpts]) ->
     try
-        State = set_internal_time(#state{alarm_ref=JobRef, job={Sched, Task},
+        State = set_internal_time(#state{job_ref=JobRef, job={Sched, Task}, opts=JobOpts,
                                          last_run=0, next_run=0, orig_when=When},
                                   DateTime, ActualMsec),
         case until_next_milliseconds(State) of
@@ -176,7 +178,7 @@ handle_call({set_datetime, DateTime, CurrEpochMsec}, _From, State) ->
         end
     catch ?EXCEPTION(_, E, ST) ->
         ?LOG_ERROR([{error, "Error setting timeout for job"},
-                    {job_ref, State#state.alarm_ref},
+                    {job_ref, State#state.job_ref},
                     {run_when, element(1, State#state.orig_when)},
                     {reason, E},
                     {stack,  ?GET_STACK(ST)}]),
@@ -232,8 +234,9 @@ process_timeout(#state{last_time=LastTime, next_run=NextRun, last_run=LastRun}=S
         end,
     reply_and_wait(Reply, State).
 
-do_job_run(#state{alarm_ref=Ref, next_run=Time, job={When, Job}} = S) ->
-    execute(Job, Ref, Time),
+do_job_run(#state{job_ref=Ref, next_run=Time, job={When, Job}, opts=Opts} = S) ->
+    Res  = do_job_start(Ref, maps:get(on_job_start, Opts, undefined)),
+    Res /= ignore andalso execute(Job, Ref, Time, maps:get(on_job_end, Opts, undefined)),
     case When of
         {once, _} ->
             stop;
@@ -242,12 +245,37 @@ do_job_run(#state{alarm_ref=Ref, next_run=Time, job={When, Job}} = S) ->
             noreply
     end.
 
-execute(Job, Ref, Time) when is_function(Job, 2) ->
-    proc_lib:spawn(fun() -> Job(Ref, Time) end);
-execute(Job, _, _) when is_function(Job, 0) ->
-    proc_lib:spawn(Job);
-execute({M, F, A}, _, _) when is_atom(M), is_atom(F), is_list(A) ->
-    proc_lib:spawn(M, F, A).
+do_job_start(_,   undefined)                -> ok;
+do_job_start(Ref, {M,F})                    -> M:F(Ref);
+do_job_start(Ref, F) when is_function(F, 1) -> F(Ref).
+
+execute(Job, Ref, Time, OnEnd) when is_function(Job, 2) ->
+    safe_spawn(Ref, fun() -> Job(Ref, Time) end, OnEnd);
+execute(Job, Ref, _, OnEnd) when is_function(Job, 0) ->
+    safe_spawn(Ref, Job, OnEnd);
+execute({M, F}, Ref, Time, OnEnd) when is_atom(M), is_atom(F) ->
+    %% The exported function is checked for arity 0 or 2 when the job is added
+    case erlang:function_exported(M, F, 2) of
+        true  -> safe_spawn(Ref, fun() -> M:F(Ref, Time) end, OnEnd);
+        false -> safe_spawn(Ref, fun() -> M:F()          end, OnEnd)
+    end;
+execute({M, F, A}, Ref, _Time, OnEnd) when is_atom(M), is_atom(F), is_list(A) ->
+    safe_spawn(Ref, fun() -> apply(M, F, A) end, OnEnd).
+
+safe_spawn(Ref, Fun, _OnEnd = {M,F}) when is_atom(M), is_atom(F) ->
+    safe_spawn(Ref, Fun, fun(JobRef, Res) -> M:F(JobRef, Res) end);
+
+safe_spawn(Ref, Fun, OnEnd) when is_function(OnEnd, 2) ->
+    proc_lib:spawn(fun() ->
+      try
+          OnEnd(Ref, {ok, Fun()})
+      catch _:Reason:Stack ->
+          OnEnd(Ref, {error, {Reason, Stack}})
+      end
+    end);
+
+safe_spawn(_Ref, Fun, undefined) ->
+    proc_lib:spawn(Fun).
 
 reply_and_wait(stop, State) ->
     {stop, normal, State};
@@ -650,7 +678,7 @@ fast_forward(#state{ref_epoch=OldRefEpoch, next_run=NextRun}=S, NewRefEpoch, New
                 Msec =< 0 andalso
                     ?LOG_WARNING([{info, "One-time job executed immediately due to negative time shift"},
                                 {time_shift_secs, to_seconds(Msec)},
-                                {job_ref,  State2#state.alarm_ref},
+                                {job_ref,  State2#state.job_ref},
                                 {job_when, State2#state.orig_when}]),
                 false;
             _ ->

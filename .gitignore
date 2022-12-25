@@ -4,3 +4,6 @@ deps/*
 _build
 rebar3
 TEST*.xml
+.deps_plt
+.eunit/
+.rebar/

@@ -51,10 +51,22 @@ stop(_State) ->
     ok.
 
 setup() ->
-    case application:get_env(erlcron, crontab) of 
+    case application:get_env(erlcron, crontab) of
         {ok, Crontab} ->
+            Def = application:get_env(erlcron, defaults, #{}),
+            is_map(Def) orelse
+              erlang:error("erlcron/defaults config must be a map!"),
             lists:foreach(fun(CronJob) ->
-                erlcron:cron(CronJob) 
+                case erlcron:cron(CronJob, Def) of
+                    ok ->
+                        ok;
+                    already_started ->
+                        ok;
+                    ignored ->
+                        ok;
+                    {error, Reason} ->
+                        erlang:error({failed_to_add_cron_job, CronJob, Reason})
+                end
             end, Crontab);
         undefined ->
             ok
