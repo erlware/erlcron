@@ -1,5 +1,5 @@
-ebin/*.beam
-ebin/*.app
-.*
-deps/*
-doc
+/.rebar
+/.eunit
+/ebin
+/deps
+/doc
