@@ -18,7 +18,7 @@ jobs:
     container:
       image: erlang:${{ matrix.version }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Compile
       run: ${{ matrix.rebar }} compile
     - name: XRef
