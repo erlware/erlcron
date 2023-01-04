@@ -39,6 +39,9 @@ add_job(JobRef, Job) ->
 %% Add a cron job to be supervised
 -spec add_job(erlcron:job_ref(), erlcron:job(), erlcron:cron_opts()) ->
     erlcron:job_ref() | ignored | already_started | {error, term()}.
+add_job(JobRef, Job = #{}, CronOpts) when is_map(CronOpts) ->
+    {JobSpec, JobOpts} = parse_job(Job),
+    add_job2(JobRef, JobSpec, check_opts(JobRef, maps:merge(CronOpts, JobOpts)));
 add_job(JobRef, Job = {_, _Task}, CronOpts) when is_map(CronOpts) ->
     add_job2(JobRef, Job, check_opts(JobRef, CronOpts));
 add_job(JobRef, {When, Task, JobOpts}, CronOpts) when is_map(JobOpts) ->
@@ -56,6 +59,17 @@ add_job2(JobRef, Job = {_, Task}, Opts) ->
         false ->
             ignored
     end.
+
+get_opt(Opt, Map) ->
+    case maps:take(Opt, Map) of
+        {V, Map1} -> {V, Map1};
+        error     -> erlang:error({missing_job_option, Opt, Map})
+    end.
+
+parse_job(Job) ->
+    {When, Opts1} = get_opt(interval, Job),
+    {Fun,  Opts2} = get_opt(execute,  Opts1),
+    {{When, Fun}, Opts2}.
 
 %% @doc
 %% Get a list of all active jobs

@@ -23,7 +23,8 @@ cron_test_() ->
         application:set_env(erlcron, crontab, [
             {{daily, {1, 0, pm}}, {erlang, system_time, []}, #{id => one}},
             {{daily, {2, 0, pm}}, fun() -> erlang:system_time() end, #{id => <<"two">>}},
-            {{daily, {3, 0, pm}}, fun(_JobRef, _Now) -> erlang:system_time() end, #{id => Ref}}
+            {{daily, {3, 0, pm}}, fun(_JobRef, _Now) -> erlang:system_time() end, #{id => Ref}},
+            #{id => four, interval => {daily, {1, 0, pm}}, execute => {erlang, system_time, []}}
         ]),
         application:start(erlcron),
         Ref
@@ -35,8 +36,9 @@ cron_test_() ->
     }.
 
 check_startup_jobs(Ref) ->
-    ?assertMatch([_, _, _], ecrn_cron_sup:all_jobs()),
-    ?assertEqual([one, Ref, <<"two">>], ecrn_reg:get_all_refs()),
+    ?assertMatch([_, _, _, _], ecrn_cron_sup:all_jobs()),
+    ?assertEqual([four, one, Ref, <<"two">>], ecrn_reg:get_all_refs()),
     ?assert(is_pid(ecrn_reg:get(one))),
     ?assert(is_pid(ecrn_reg:get(<<"two">>))),
-    ?assert(is_pid(ecrn_reg:get(Ref))).
+    ?assert(is_pid(ecrn_reg:get(Ref))),
+    ?assert(is_pid(ecrn_reg:get(four))).
