@@ -59,7 +59,7 @@
 -type dow()        :: dow_day() | [dow_day()].
 -type callable()   :: {M :: module(), F :: atom(), A :: [term()]} |
                       fun(() -> term()) |
-                      fun((JobRef::atom()|reference(), calendar:datetime()) -> term()).
+                      fun((JobRef::job_ref(), calendar:datetime()) -> term()).
 -type run_when()   :: {once, cron_time()}
                     | {once, seconds()}
                     | {daily, period()}
@@ -126,12 +126,12 @@ validate(Spec) ->
 -spec cron(job()) ->
         job_ref() | ignored | already_started | {error, term()}.
 cron(Job) ->
-    cron(make_ref(), Job, #{}).
+    cron(make_ref(Job), Job, #{}).
 
 -spec cron(job()|job_ref(), job()|cron_opts()) ->
         job_ref() | ignored | already_started | {error, term()}.
 cron(Job, DefOpts) when is_map(DefOpts) ->
-    cron(make_ref(), Job, DefOpts);
+    cron(make_ref(Job), Job, DefOpts);
 
 cron(JobRef, Job) when (is_atom(JobRef) orelse is_reference(JobRef) orelse is_binary(JobRef))
                      , is_tuple(Job) ->
@@ -291,3 +291,10 @@ multi_set_datetime({D,T} = DateTime) when tuple_size(D)==3, tuple_size(T)==3 ->
     BadNodes :: [node()].
 multi_set_datetime(Nodes, DateTime) when is_list(Nodes), tuple_size(DateTime)==2 ->
     ecrn_control:multi_set_datetime(Nodes, DateTime).
+
+make_ref({_When, _Callable, #{id := ID}}) when is_atom(ID); is_binary(ID); is_reference(ID) ->
+    ID;
+make_ref({_When, _Callable, #{}}) ->
+    make_ref();
+make_ref({_When, _Callable}) ->
+    make_ref().

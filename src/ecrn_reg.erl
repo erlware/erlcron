@@ -40,19 +40,19 @@ start_link() ->
 %% @doc
 %%   Register an arbitrary value with the system, under a set of keys
 -spec register(erlcron:job_ref(), term()) -> boolean().
-register(Key, Pid) when (is_atom(Key) orelse is_reference(Key)), is_pid(Pid) ->
+register(Key, Pid) when (is_atom(Key) orelse is_reference(Key) orelse is_binary(Key)), is_pid(Pid) ->
     gen_server:call(?SERVER, {register, Key, Pid}).
 
 %% @doc
 %%   Remove the value registered under a que or set of keys
 -spec unregister(erlcron:job_ref()) -> ok.
-unregister(Key) when is_atom(Key); is_reference(Key) ->
+unregister(Key) when is_atom(Key); is_reference(Key); is_binary(Key) ->
     gen_server:cast(?SERVER, {unregister, Key}).
 
 %% @doc
 %% Get a pid by reference key.
 -spec get(erlcron:job_ref()) -> pid() | undefined.
-get(Key) when is_atom(Key); is_reference(Key) ->
+get(Key) when is_atom(Key); is_reference(Key); is_binary(Key) ->
     gen_server:call(?SERVER, {get, Key}).
 
 %% @doc
@@ -64,7 +64,7 @@ get_refs(Pid) when is_pid(Pid) ->
 %% @doc
 %% Cancel all jobs assigned to the given key
 -spec cancel(term()) -> boolean().
-cancel(Key) when is_atom(Key); is_reference(Key) ->
+cancel(Key) when is_atom(Key); is_reference(Key); is_binary(Key) ->
     gen_server:call(?SERVER, {cancel, Key}).
 
 %% @doc
@@ -160,7 +160,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-get_for_key(Ref, #state{ref2pid=Map}) when is_reference(Ref); is_atom(Ref) ->
+get_for_key(Ref, #state{ref2pid=Map}) when is_reference(Ref); is_atom(Ref); is_binary(Ref) ->
     case maps:find(Ref, Map) of
         error   -> undefined;
         OkValue -> OkValue
@@ -171,16 +171,8 @@ get_for_key(Pid, #state{pid2ref=Map}) when is_pid(Pid) ->
         OkValue -> OkValue
     end.
 
--spec find_and_remove(reference()|atom()|pid(), #state{}, undefined|fun((pid())->ok)) ->
+-spec find_and_remove(erlcron:job_ref()|pid(), #state{}, undefined|fun((pid())->ok)) ->
         {boolean(), #state{}}.
-find_and_remove(Ref, S = #state{ref2pid=M1}, Fun) when is_reference(Ref); is_atom(Ref) ->
-    case maps:find(Ref, M1) of
-        {ok, Pid} ->
-            is_function(Fun, 1) andalso Fun(Pid),
-            {true, find_and_remove2(Pid, Ref, S)};
-        error   ->
-            {false, S}
-    end;
 find_and_remove(Pid, State = #state{ref2pid=M1, pid2ref=M2}, Fun) when is_pid(Pid) ->
     case maps:find(Pid, M2) of
         {ok, Refs} ->
@@ -189,6 +181,14 @@ find_and_remove(Pid, State = #state{ref2pid=M1, pid2ref=M2}, Fun) when is_pid(Pi
             {true, State#state{ref2pid=NewM1, pid2ref=maps:remove(Pid,M2)}};
         error   ->
             {false, State}
+    end;
+find_and_remove(Ref, S = #state{ref2pid=M1}, Fun) ->
+    case maps:find(Ref, M1) of
+        {ok, Pid} ->
+            is_function(Fun, 1) andalso Fun(Pid),
+            {true, find_and_remove2(Pid, Ref, S)};
+        error   ->
+            {false, S}
     end.
 
 find_and_remove2(Pid, Ref, S = #state{ref2pid=M1, pid2ref=M2}) when is_pid(Pid) ->
@@ -243,6 +243,10 @@ general_tests(_) ->
     ecrn_reg:unregister(b),
     ?assertMatch([c,Ref],    ecrn_reg:get_all_refs()),
     ?assertMatch([Self],     ecrn_reg:get_all_pids()),
+    ?assertMatch(true,       ecrn_reg:register(<<"d">>, Self)),
+    ?assertMatch(Self,       ecrn_reg:get(<<"d">>)),
+    ecrn_reg:unregister(<<"d">>),
+    ?assertMatch(undefined,  ecrn_reg:get(<<"d">>)),
     ok.
 
 -endif.

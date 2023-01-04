@@ -100,6 +100,8 @@ check_opts(JobRef, Map) ->
             ok;
         (on_job_end, MF) when tuple_size(MF)==2; is_function(MF, 2) ->
             ok;
+        (id, ID) when is_atom(ID); is_binary(ID); is_reference(ID) ->
+            ok;
         (K, V) ->
             erlang:error({invalid_option_value, JobRef, {K, V}})
     end, Map),
