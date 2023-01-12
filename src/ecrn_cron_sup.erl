@@ -171,6 +171,8 @@ check_exists2(JobRef, {M,F,A} = Task) ->
     end.
 
 check_arity(JobRef, M, F, Lengths) ->
+    {module, M} == code:ensure_loaded(M)
+        orelse erlang:error({job_task_module_not_loaded, JobRef, M}),
     lists:any(fun(Arity) -> erlang:function_exported(M,F,Arity) end, Lengths)
         orelse erlang:error({wrong_arity_of_job_task, JobRef, {M,F,Lengths}}).
 
