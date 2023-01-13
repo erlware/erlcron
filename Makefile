@@ -17,7 +17,7 @@ ifeq ($(ERL),)
 $(error "Erlang not available on this system")
 endif
 
-REBAR=$(shell which rebar)
+REBAR=$(shell which rebar3)
 
 ifeq ($(REBAR),)
 $(error "Rebar not available on this system")
@@ -37,18 +37,18 @@ get-deps:
 	$(REBAR) compile
 
 compile:
-	$(REBAR) skip_deps=true compile
+	$(REBAR) compile
 
 doc:
 	$(REBAR) skip_deps=true doc
 
 eunit: compile clean-common-test-data
-	$(REBAR) skip_deps=true eunit
+	$(REBAR) eunit
 
 ct: compile clean-common-test-data
-	$(REBAR) skip_deps=true ct
+	$(REBAR) ct
 
-test: compile eunit ct
+test: compile eunit
 
 $(DEPS_PLT):
 	@echo Building local plt at $(DEPS_PLT)
@@ -57,8 +57,7 @@ $(DEPS_PLT):
 	   --apps erts kernel stdlib
 
 dialyzer: $(DEPS_PLT)
-	dialyzer --plt $(DEPS_PLT) --fullpath \
-	-pa $(CURDIR)/ebin --src src
+	$(REBAR) $@
 
 typer:
 	typer --plt $(DEPS_PLT) -r ./src
@@ -69,7 +68,7 @@ shell: get-deps compile
 # rebuilt). However, eunit runs the tests, which probably
 # fails (that's probably why You want them in the shell). This
 # runs eunit but tells make to ignore the result.
-	- @$(REBAR) skip_deps=true eunit
+	- @$(REBAR) eunit
 	@$(ERL) $(ERLFLAGS)
 
 pdf:
@@ -78,12 +77,13 @@ pdf:
 clean-common-test-data:
 # We have to do this because of the unique way we generate test
 # data. Without this rebar eunit gets very confused
-	- rm -rf $(CURDIR)/test/*_SUITE_data
+	@rm -rf $(CURDIR)/test/*_SUITE_data
 
 clean: clean-common-test-data
 	- rm -rf $(CURDIR)/test/*.beam
-	- rm -rf $(CURDIR)/logs
-	$(REBAR) skip_deps=true clean
+	- rm -rf $(CURDIR)/{.eunit,_build,logs}
+	- rm -fr TEST-*
+	$(REBAR) clean
 
 distclean: clean
 	- rm -rf $(DEPS_PLT)

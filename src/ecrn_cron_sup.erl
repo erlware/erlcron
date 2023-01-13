@@ -117,7 +117,21 @@ check_opts(JobRef, Map) ->
         (id, ID) when is_atom(ID); is_binary(ID); is_reference(ID) ->
             ok;
         (K, V) ->
-            erlang:error({invalid_option_value, JobRef, {K, V}})
+            Info =
+                if is_function(V) ->
+                    [Name, Arity, Mod, Env0] =
+                        [element(2, erlang:fun_info(V, I)) || I <- [name, arity, module, env]],
+                    Fun = lists:flatten(io_lib:format("~w/~w", [Name, Arity])),
+                    case Env0 of
+                        [T|_] when is_tuple(T) ->
+                            {Mod, element(1,T), Fun}; %% {Module, {Line, Pos}, Fun}
+                        _ ->
+                            {Mod, Fun}
+                    end;
+                true ->
+                    V
+                end,
+            erlang:error({invalid_option_value, JobRef, {K, Info}})
     end, Map),
     Map.
 
@@ -174,7 +188,13 @@ check_arity(JobRef, M, F, Lengths) ->
     {module, M} == code:ensure_loaded(M)
         orelse erlang:error({job_task_module_not_loaded, JobRef, M}),
     lists:any(fun(Arity) -> erlang:function_exported(M,F,Arity) end, Lengths)
-        orelse erlang:error({wrong_arity_of_job_task, JobRef, {M,F,Lengths}}).
+        orelse erlang:error({wrong_arity_of_job_task, JobRef, report_arity(M,F,Lengths)}).
+
+report_arity(M, F, [A]) ->
+    lists:flatten(io_lib:format("~w:~w/~w", [M, F, A]));
+report_arity(M, F, A) when is_list(A) ->
+    Arities = string:join([integer_to_list(I) || I <- A], ","),
+    lists:flatten(io_lib:format("~w:~w/[~s]", [M, F, Arities])).
 
 to_list(H) when is_binary(H) -> binary_to_list(H);
 to_list(H) when is_list(H)   -> H.
