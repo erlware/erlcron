@@ -113,6 +113,20 @@ cron_bad_job_spec_test_() ->
                      {{daily, {1, 0, pm}}, {erlang, system_time123}, #{id => one}}
                  ]),
                  application:start(erlcron)
+             end),
+         ?_assertMatch(
+             ignored,
+             erlcron:cron({{daily, {1, 0, pm}}, {'$$$bad_module', system_time, []},
+                           #{id => ignore_host, hostnames => [<<"$$somehost">>]}})
+             ),
+         ?_assertMatch(
+             ok,
+             begin
+                 application:set_env(erlcron, crontab, [
+                     {{daily, {1, 0, pm}}, {'$$$bad_module', system_time, []},
+                      #{id => ignore_host, hostnames => [<<"$$somehost">>]}}
+                 ]),
+                 application:start(erlcron)
              end)
      ]
     }.
