@@ -61,8 +61,9 @@ setup(Def) ->
     case application:get_env(erlcron, crontab) of
         {ok, Crontab} ->
             lists:foreach(fun(CronJob) ->
-                Res = erlcron:cron(CronJob, Def),
-                ?LOG_INFO("CRON: adding job ~1024p: ~p", [CronJob, Res]),
+                Res  = erlcron:cron(CronJob, Def),
+                Res2 = if is_reference(Res) -> io_lib:format(": ~p", [Res]); true -> [] end,
+                ?LOG_INFO("CRON: adding job ~1024p~s", [CronJob, Res2]),
                 case Res of
                     already_started ->
                         erlang:error({duplicate_job_reference, CronJob});
