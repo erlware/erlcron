@@ -60,7 +60,7 @@ dialyzer: $(DEPS_PLT)
 	$(REBAR) $@
 
 typer:
-	typer --plt $(DEPS_PLT) -r ./src
+	typer --plt $(DEPS_PLT) -I include -r ./src
 
 shell: get-deps compile
 # You often want *rebuilt* rebar tests to be available to the
