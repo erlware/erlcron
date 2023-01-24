@@ -39,6 +39,9 @@ add_job(JobRef, Job) ->
 %% Add a cron job to be supervised
 -spec add_job(erlcron:job_ref(), erlcron:job(), erlcron:cron_opts()) ->
     erlcron:job_ref() | ignored | already_started | {error, term()}.
+add_job(JobRef, Job = #{}, CronOpts) when is_map(CronOpts) ->
+    {JobSpec, JobOpts} = parse_job(Job),
+    add_job2(JobRef, JobSpec, check_opts(JobRef, maps:merge(CronOpts, JobOpts)));
 add_job(JobRef, Job = {_, _Task}, CronOpts) when is_map(CronOpts) ->
     add_job2(JobRef, Job, check_opts(JobRef, CronOpts));
 add_job(JobRef, {When, Task, JobOpts}, CronOpts) when is_map(JobOpts) ->
@@ -56,6 +59,17 @@ add_job2(JobRef, Job = {_, Task}, Opts) ->
         false ->
             ignored
     end.
+
+get_opt(Opt, Map) ->
+    case maps:take(Opt, Map) of
+        {V, Map1} -> {V, Map1};
+        error     -> erlang:error({missing_job_option, Opt, Map})
+    end.
+
+parse_job(Job) ->
+    {When, Opts1} = get_opt(interval, Job),
+    {Fun,  Opts2} = get_opt(execute,  Opts1),
+    {{When, Fun}, Opts2}.
 
 %% @doc
 %% Get a list of all active jobs
@@ -100,8 +114,24 @@ check_opts(JobRef, Map) ->
             ok;
         (on_job_end, MF) when tuple_size(MF)==2; is_function(MF, 2) ->
             ok;
+        (id, ID) when is_atom(ID); is_binary(ID); is_reference(ID) ->
+            ok;
         (K, V) ->
-            erlang:error({invalid_option_value, JobRef, {K, V}})
+            Info =
+                if is_function(V) ->
+                    [Name, Arity, Mod, Env0] =
+                        [element(2, erlang:fun_info(V, I)) || I <- [name, arity, module, env]],
+                    Fun = lists:flatten(io_lib:format("~w/~w", [Name, Arity])),
+                    case Env0 of
+                        [T|_] when is_tuple(T) ->
+                            {Mod, element(1,T), Fun}; %% {Module, {Line, Pos}, Fun}
+                        _ ->
+                            {Mod, Fun}
+                    end;
+                true ->
+                    V
+                end,
+            erlang:error({invalid_option_value, JobRef, {K, Info}})
     end, Map),
     Map.
 
@@ -155,8 +185,16 @@ check_exists2(JobRef, {M,F,A} = Task) ->
     end.
 
 check_arity(JobRef, M, F, Lengths) ->
+    {module, M} == code:ensure_loaded(M)
+        orelse erlang:error({job_task_module_not_loaded, JobRef, M}),
     lists:any(fun(Arity) -> erlang:function_exported(M,F,Arity) end, Lengths)
-        orelse erlang:error({wrong_arity_of_job_task, JobRef, {M,F,Lengths}}).
+        orelse erlang:error({wrong_arity_of_job_task, JobRef, report_arity(M,F,Lengths)}).
+
+report_arity(M, F, [A]) ->
+    lists:flatten(io_lib:format("~w:~w/~w", [M, F, A]));
+report_arity(M, F, A) when is_list(A) ->
+    Arities = string:join([integer_to_list(I) || I <- A], ","),
+    lists:flatten(io_lib:format("~w:~w/[~s]", [M, F, Arities])).
 
 to_list(H) when is_binary(H) -> binary_to_list(H);
 to_list(H) when is_list(H)   -> H.

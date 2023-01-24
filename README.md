@@ -163,7 +163,18 @@ The app.config file can be as follow:
                 #{hostnames => ["somehost"]},
 
             {{daily, {every, {23, sec}, {between, {3, pm}, {3, 30, pm}}}},
-             {io, fwrite, ["Hello, world!~n"]}}
+             {io, fwrite, ["Hello, world!~n"]}},
+
+            %% A job spec can be defined as a map, where the `interval' and
+            %% `execute' keys are mandatory:
+            #{id => test_job,    interval  => {daily, {1, 0, pm}},
+                                 execute   => {io, fwrite, ["Hello, world!~n"]}},
+
+            %% If defined as a map, the map can contain any `erlcron:job_opts()'
+            %% options:
+            #{id => another_job, interval  => {daily, {1, 0, pm}},
+                                 execute   => {io, fwrite, ["Hello, world!~n"]},
+                                 hostnames => ["myhost"]}
         ]},
 
         %% Instead of specifying individual options for each job, you can

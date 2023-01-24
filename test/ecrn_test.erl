@@ -1,10 +1,13 @@
 %%% @copyright Erlware, LLC. All Rights Reserved.
+%%% vim:ts=4:ts=4:et
 %%%
 %%% This file is provided to you under the BSD License; you may not use
 %%% this file except in compliance with the License.
 -module(ecrn_test).
 -compile(export_all).
 -compile(nowarn_export_all).
+
+-import(ecrn_startup_test, [disable_sasl_logger/0, enable_sasl_logger/0]).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -16,17 +19,22 @@
 cron_test_() ->
     {setup,
      fun() ->
-             application:load(erlcron),
-             application:set_env(erlcron, sup_intensity, 0),
-             application:set_env(erlcron, sup_period,    1),
-             application:start(erlcron)
+        application:load(erlcron),
+        application:set_env(erlcron, sup_intensity, 0),
+        application:set_env(erlcron, sup_period,    1),
+        application:unset_env(erlcron, crontab),
+        disable_sasl_logger(),
+        application:start(erlcron)
      end,
      fun(_) ->
-             application:stop(erlcron)
+        application:stop(erlcron),
+        enable_sasl_logger()
      end,
      [{timeout, 30, [
        ?FuncTest(set_alarm),
-       ?FuncTest(start_stop_funs),
+       ?FuncTest(start_stop_fun1),
+       ?FuncTest(start_stop_fun2),
+       ?FuncTest(start_stop_fun3),
        ?FuncTest(travel_back_in_time),
        ?FuncTest(cancel_alarm),
        ?FuncTest(big_time_jump),
@@ -78,7 +86,7 @@ cancel_alarm() ->
     erlcron:set_datetime({Day, AlarmTimeOfDay}),
     ?assertMatch(0, collect(ack, 125, 1)).
 
-start_stop_funs() ->
+start_stop_fun1() ->
     Day = {2000,1,1},
     erlcron:set_datetime({Day,{8,0,0}}),
     AlarmTimeOfDay = {8,0,1},
@@ -90,9 +98,14 @@ start_stop_funs() ->
     ?assertEqual(test1, Ref1),
     ?assertMatch(1, collect({start, test1}, 1500, 1)),
     ?assertMatch(1, collect(ack, 125, 1)),
-    ?assertMatch(1, collect({finish, test1, {ok, 1234}}, 1500, 1)),
+    ?assertMatch(1, collect({finish, test1, {ok, 1234}}, 1500, 1)).
 
+start_stop_fun2() ->
+    Day = {2000,1,1},
     erlcron:set_datetime({Day,{8,0,0}}),
+    AlarmTimeOfDay = {8,0,1},
+
+    Self = self(),
     Opts2 = #{on_job_start => fun(Ref)      -> Self ! {ignored, Ref}, ignore end,
               on_job_end   => fun(Ref, Res) -> Self ! {finish,  Ref, Res}    end},
     Ref2  = erlcron:at(test2, AlarmTimeOfDay, fun(_, _) -> timer:sleep(60000), Self ! ack, 1000 end, Opts2),
@@ -100,9 +113,16 @@ start_stop_funs() ->
     ?assertEqual(test2, Ref2),
     ?assertMatch(1, collect({ignored, test2}, 1500, 1)),
     ?assertMatch(0, collect({finish, test2, {ok, 1000}}, 125, 1)),
-    ?assertEqual(undefined, ecrn_reg:get(test2)),
+    ?assertEqual(undefined, ecrn_reg:get(test2)).
 
+start_stop_fun3() ->
+    Day = {2000,1,1},
     erlcron:set_datetime({Day,{8,0,0}}),
+    AlarmTimeOfDay = {8,0,1},
+
+    Self = self(),
+    Opts = #{on_job_start => fun(Ref)      -> Self ! {start,  Ref} end,
+             on_job_end   => fun(Ref, Res) -> Self ! {finish, Ref, Res} end},
     Len3 = length(lists:seq(1, rand:uniform(10)+2)),
     Ref3 = erlcron:at(test3, AlarmTimeOfDay, fun(_, _) -> 1 = Len3 end, Opts),
 

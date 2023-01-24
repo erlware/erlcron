@@ -15,6 +15,8 @@
 %% Application callbacks
 -export([start/2, stop/1]).
 
+-include("erlcron.hrl").
+
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -40,7 +42,12 @@ manual_stop() ->
 start(_StartType, _StartArgs) ->
     case ecrn_sup:start_link() of
         {ok, Pid} ->
-            setup(),
+            {ok, H} = inet:gethostname(),
+            Def = application:get_env(erlcron, defaults, #{}),
+            is_map(Def) orelse
+              erlang:error("erlcron/defaults config must be a map!"),
+            ?LOG_INFO("CRON: started on host ~p using defaults: ~1024p", [H, Def]),
+            setup(Def),
             {ok, Pid};
         Error ->
             Error
@@ -50,19 +57,19 @@ start(_StartType, _StartArgs) ->
 stop(_State) ->
     ok.
 
-setup() ->
+setup(Def) ->
     case application:get_env(erlcron, crontab) of
         {ok, Crontab} ->
-            Def = application:get_env(erlcron, defaults, #{}),
-            is_map(Def) orelse
-              erlang:error("erlcron/defaults config must be a map!"),
             lists:foreach(fun(CronJob) ->
-                case erlcron:cron(CronJob, Def) of
-                    ok ->
-                        ok;
+                Res  = erlcron:cron(CronJob, Def),
+                Res2 = if is_reference(Res) -> io_lib:format(": ~p", [Res]); true -> [] end,
+                ?LOG_INFO("CRON: adding job ~1024p~s", [CronJob, Res2]),
+                case Res of
                     already_started ->
-                        ok;
+                        erlang:error({duplicate_job_reference, CronJob});
                     ignored ->
+                        ok;
+                    Ref when is_reference(Ref); is_atom(Ref); is_binary(Ref) ->
                         ok;
                     {error, Reason} ->
                         erlang:error({failed_to_add_cron_job, CronJob, Reason})

@@ -59,7 +59,7 @@
 -type dow()        :: dow_day() | [dow_day()].
 -type callable()   :: {M :: module(), F :: atom(), A :: [term()]} |
                       fun(() -> term()) |
-                      fun((JobRef::atom()|reference(), calendar:datetime()) -> term()).
+                      fun((JobRef::job_ref(), calendar:datetime()) -> term()).
 -type run_when()   :: {once, cron_time()}
                     | {once, seconds()}
                     | {daily, period()}
@@ -67,7 +67,8 @@
                     | {monthly, dom()|[dom()], period()}.
 
 -type  job()      :: {run_when(), callable()}
-                   | {run_when(), callable(), job_opts()}.
+                   | {run_when(), callable(), job_opts()}
+                   | #{id => job_ref(), interval => run_when(), execute => callable(), _ => any()}.
 
 %% should be opaque but dialyzer does not allow it
 -type job_ref()   :: reference() | atom() | binary().
@@ -126,15 +127,14 @@ validate(Spec) ->
 -spec cron(job()) ->
         job_ref() | ignored | already_started | {error, term()}.
 cron(Job) ->
-    cron(make_ref(), Job, #{}).
+    cron(make_ref(Job), Job, #{}).
 
 -spec cron(job()|job_ref(), job()|cron_opts()) ->
         job_ref() | ignored | already_started | {error, term()}.
 cron(Job, DefOpts) when is_map(DefOpts) ->
-    cron(make_ref(), Job, DefOpts);
+    cron(make_ref(Job), Job, DefOpts);
 
-cron(JobRef, Job) when (is_atom(JobRef) orelse is_reference(JobRef) orelse is_binary(JobRef))
-                     , is_tuple(Job) ->
+cron(JobRef, Job) when (is_atom(JobRef) orelse is_reference(JobRef) orelse is_binary(JobRef)) ->
     cron(JobRef, Job, #{}).
 
 %% @doc Schedule a job identified by a `JobRef'.
@@ -144,7 +144,7 @@ cron(JobRef, Job) when (is_atom(JobRef) orelse is_reference(JobRef) orelse is_bi
 -spec cron(job_ref(), job(), job_opts()) ->
         job_ref() | ignored | already_started | {error, term()}.
 cron(JobRef, Job, Opts) when (is_atom(JobRef) orelse is_reference(JobRef) orelse is_binary(JobRef))
-                           , is_tuple(Job), is_map(Opts) ->
+                           , is_map(Opts) ->
     ecrn_cron_sup:add_job(JobRef, Job, Opts).
 
 %% @doc
@@ -291,3 +291,12 @@ multi_set_datetime({D,T} = DateTime) when tuple_size(D)==3, tuple_size(T)==3 ->
     BadNodes :: [node()].
 multi_set_datetime(Nodes, DateTime) when is_list(Nodes), tuple_size(DateTime)==2 ->
     ecrn_control:multi_set_datetime(Nodes, DateTime).
+
+make_ref(#{id := ID}) when is_atom(ID); is_binary(ID); is_reference(ID) ->
+    ID;
+make_ref({_When, _Callable, #{id := ID}}) when is_atom(ID); is_binary(ID); is_reference(ID) ->
+    ID;
+make_ref({_When, _Callable, #{}}) ->
+    make_ref();
+make_ref({_When, _Callable}) ->
+    make_ref().
