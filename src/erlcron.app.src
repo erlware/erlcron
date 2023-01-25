@@ -1,7 +1,9 @@
 {application,erlcron,
- [{description,"Erlang Implementation of cron"},
-  {vsn,git},
-  {modules,[]},
-  {registered,[ecrn_agent]},
-  {applications,[kernel,stdlib]},
-  {mod,{ecrn_app,[]}}]}.
+             [{description,"Scheduled execution of Erlang functions"},
+              {vsn,"1.2.2"},
+              {modules,[]},
+              {registered,[ecrn_agent]},
+              {applications,[kernel,stdlib]},
+              {mod,{ecrn_app,[]}},
+              {licenses,["BSD"]},
+              {links,[{"Github","https://github.com/erlware/erlcron"}]}]}.

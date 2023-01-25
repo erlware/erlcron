@@ -40,7 +40,7 @@ compile:
 	$(REBAR) compile
 
 doc:
-	$(REBAR) skip_deps=true doc
+	$(REBAR) ex_doc
 
 eunit: compile clean-common-test-data
 	$(REBAR) eunit
