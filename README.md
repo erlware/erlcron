@@ -1,6 +1,10 @@
 Erlcron
 =======
 
+[![Build Status](https://github.com/erlware/erlcron/actions/workflows/ci.yml/badge.svg)](https://github.com/erlware/erlcron/actions/workflows/ci.yml)
+[![Hex pm](https://img.shields.io/hexpm/v/erlcron.svg)](https://hex.pm/packages/erlcron)
+[![Docs](https://img.shields.io/badge/hex-docs-green.svg?style=flat)](https://hexdocs.pm/erlcron)
+
 Erlcron provides testable cron like functionality for Erlang
 systems, with the ability to arbitrarily set the time and place along
 with fastforwarding through tests. See erlcron.erl for more
