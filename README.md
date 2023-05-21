@@ -1,7 +1,7 @@
 Erlcron
 =======
 
-[![Build Status](https://secure.travis-ci.org/Ledest/erlcron.png)](http://travis-ci.org/Ledest/erlcron)
+[![Build Status](https://github.com/Ledest/erlcron/actions/workflows/erlang.yml/badge.svg)](https://github.com/Ledest/erlcron/actions/workflows/erlang.yml/badge.svg)
 
 Erlcron provides testable cron like functionality for Erlang
 systems, with the ability to arbitrarily set the time and place along
