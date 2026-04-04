@@ -1,6 +1,6 @@
 {application,erlcron,
              [{description,"Scheduled execution of Erlang functions"},
-              {vsn,"1.2.3"},
+              {vsn,"1.2.4"},
               {modules,[]},
               {registered,[ecrn_agent]},
               {applications,[kernel,stdlib]},
