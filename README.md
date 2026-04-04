@@ -31,6 +31,7 @@ it easy to verify time-based behaviour in automated tests.
 2. [Quick Start](#quick-start)
 3. [Schedule Syntax](#schedule-syntax)
    - [once](#once)
+   - [Period](#period)
    - [daily](#daily)
    - [weekly](#weekly)
    - [monthly](#monthly)
@@ -94,7 +95,7 @@ erlcron:cancel(JobRef).
 
 All schedules are expressed as `{Type, ...}` tuples.
 
-### Time Literals
+### Time Literals (Duration)
 
 Times can be expressed in several equivalent forms:
 
@@ -103,6 +104,7 @@ Times can be expressed in several equivalent forms:
 | `{H, am\|pm}` | Hour in 12-hour clock, e.g. `{3, pm}` = 15:00:00 |
 | `{H, M, am\|pm}` | Hour and minute, e.g. `{3, 30, pm}` = 15:30:00 |
 | `{H, M, S}` | 24-hour clock, e.g. `{15, 30, 0}` |
+| `{H, M, S, Ms}` | Same as `{H, M, S}` but includes milliseconds |
 
 ### `once`
 
@@ -118,6 +120,22 @@ Run a job exactly one time.
 %% After N seconds from now
 {once, 3600}
 ```
+
+### Period
+
+`Period` is used wherever a repeating or multi-time schedule is needed
+(`daily`, `weekly`, `monthly`). It can take any of the following forms:
+
+| Form | Example | Meaning |
+|------|---------|----------|
+| `When` | `{3, 30, pm}` | Run once per day at the given time |
+| `[When, ...]` | `[{9, am}, {5, pm}]` | Run at each listed time per day |
+| `{every, Duration}` | `{every, {30, min}}` | Repeat every *Duration* all day |
+| `{every, Duration, {between, From, To}}` | `{every, {5, min}, {between, {9, am}, {5, pm}}}` | Repeat every *Duration* within the time window |
+
+Duration units: `hr` / `h`, `min` / `m`, `sec` / `s`.
+
+---
 
 ### `daily`
 

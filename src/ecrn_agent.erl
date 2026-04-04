@@ -619,6 +619,8 @@ resolve_period(Time) ->
 -spec resolve_time(erlcron:cron_time()) -> erlcron:milliseconds().
 resolve_time({H, M, S}) when H < 24, M < 60, S < 60  ->
     to_milliseconds(S + M * 60 + H * 3600);
+resolve_time({H, M, S, X}) when H < 24, M < 60, S < 60 ->
+    resolve_time4({H, M, S, X});
 resolve_time({H, M, S, X}) when  H < 24, M < 60, S < 60, is_atom(X) ->
     resolve_time({H, X}) + to_milliseconds(M*60 + S);
 resolve_time({H, M, X}) when  H < 24, M < 60, is_atom(X) ->
@@ -633,6 +635,11 @@ resolve_time({H,  pm}) when H < 12 ->
     to_milliseconds((H + 12) * 3600);
 resolve_time(Other) ->
     throw({invalid_time, Other}).
+
+resolve_time4({H, M, S, X}) when is_atom(X) ->
+    resolve_time({H, X}) + to_milliseconds(M*60 + S);
+resolve_time4({H, M, S, X}) when is_integer(X), X >= 0, X < 1000 ->
+    to_milliseconds(S + M * 60 + H * 3600) + X.
 
 -doc false.
 %% Returns seconds for a given duration.
