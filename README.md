@@ -44,7 +44,12 @@ it easy to verify time-based behaviour in automated tests.
 
 ## Installation
 
-Add `erlcron` to your `rebar.config`:
+For Elixir, add the following to `mix.exs` dependencies: 
+```elixir
+{:erlcron, "~> 1.0"}
+```
+
+For Erlng, add `erlcron` to your `rebar.config`:
 
 ```erlang
 {deps, [
@@ -52,7 +57,7 @@ Add `erlcron` to your `rebar.config`:
 ]}.
 ```
 
-Or with a specific version from Hex:
+Or with the latest stable version from Hex:
 
 ```erlang
 {deps, [erlcron]}.
