@@ -54,7 +54,7 @@ $(DEPS_PLT):
 	@echo Building local plt at $(DEPS_PLT)
 	@echo
 	dialyzer --output_plt $(DEPS_PLT) --build_plt \
-	   --apps erts kernel stdlib
+    --apps erts kernel stdlib compiler crypto syntax_tools parsetools
 
 dialyzer: $(DEPS_PLT)
 	$(REBAR) $@
