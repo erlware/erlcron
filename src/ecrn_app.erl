@@ -3,11 +3,17 @@
 %%% This file is provided to you under the BSD License; you may not use
 %%% this file except in compliance with the License.
 %%%----------------------------------------------------------------
-%%% @doc
-%%%  erlcron app system
 -module(ecrn_app).
-
 -behaviour(application).
+
+-moduledoc """
+OTP application callback module for erlcron.
+
+On startup, reads the `crontab` key from the application environment
+and registers each listed job with the scheduler.  A `defaults` map
+may also be provided to set options that apply to every job unless
+overridden per-job.  See the README for the full configuration format.
+""".
 
 %% API
 -export([manual_start/0, manual_stop/0]).
@@ -21,16 +27,14 @@
 %%% API
 %%%===================================================================
 
-%% @doc
-%%  start up the app and all the dependent apps.
+-doc "Start the erlcron application and all its dependencies".
 manual_start() ->
     %application:start(crypto),
     application:start(eunit),
     %application:start(sasl),
     application:start(erlcron).
 
-%% @doc
-%%  stop the app manually
+-doc "Stop the erlcron application".
 manual_stop() ->
     application:stop(erlcron).
 

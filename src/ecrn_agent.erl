@@ -3,10 +3,23 @@
 %%% This file is provided to you under the BSD License; you may not use
 %%% this file except in compliance with the License.
 %%%-------------------------------------------------------------------
-%%% @doc
-%%%  Agent for cronish testing
 -module(ecrn_agent).
 -behaviour(gen_server).
+
+-moduledoc """
+Per-job gen_server that manages the lifecycle of a single scheduled job.
+
+When a job is added to the scheduler, one `ecrn_agent` process is started
+for it. The process calculates the duration until the job's next execution
+time and uses `gen_server` timeouts to sleep for exactly that long.  To
+avoid accumulated drift from DST transitions or other system-clock changes,
+the sleep duration is capped at 30 minutes; the next execution time is then
+recalculated from scratch at each wake-up.
+
+The module also exposes the schedule normalisation and next-run calculation
+logic through the public functions `normalize/2` and `until_next_time/2`,
+which are used by `erlcron:validate/1` and the test suite.
+""".
 
 %% API
 -export([start_link/3,
@@ -57,8 +70,7 @@
 %%% API
 %%%===================================================================
 
-%% @doc
-%% Starts the server with the appropriate job and the appropriate ref
+-doc "Start a job agent linked to the calling process".
 -spec start_link(erlcron:job_ref(), erlcron:job(), erlcron:job_opts()) ->
                              ignore | {error, Reason::term()} | {ok, pid()}.
 start_link(JobRef, {When, _Task} = Job, JobOpts) when (is_reference(JobRef) orelse is_binary(JobRef))
@@ -101,14 +113,17 @@ set_datetime(Pid, DateTime, Actual, UTC) ->
 recalculate(Pid) ->
     gen_server:cast(Pid, recalculate).
 
-%% @doc
-%% Get job's next execution time
+-doc "Return the time (millisecond epoch) at which the job is next scheduled to run".
 -spec next_run(pid()) -> erlang:timestamp().
 next_run(Pid) ->
     gen_server:call(Pid, next_run).
 
-%% @doc
-%%  Validate that a run_when spec specified is correct.
+-doc """
+Validate a `t:erlcron:run_when/0` spec without scheduling it.
+
+Returns `ok` when the spec is syntactically and semantically valid,
+or `{error, Reason}` otherwise.
+""".
 -spec validate(erlcron:run_when()) -> ok | {error, term()}.
 validate(Spec) ->
     State = #state{job=undefined, job_ref=undefined},
@@ -283,7 +298,8 @@ reply_and_wait2(Reply,   {ok, {State, Timeout}}) -> {reply, Reply, State, Timeou
 reply_and_wait2(noreply, {error, {State,    _}}) -> {stop, normal, State};
 reply_and_wait2(Reply,   {error, {State,    _}}) -> {stop, normal, Reply, State}.
 
-%% @doc Calculates the duration in milliseconds until the next time
+-doc false.
+%% Calculates the duration in milliseconds until the next time
 %% a job is to be run.
 %% The returned duration is set to the maximum of 1 hour at which
 %% point the duration is recalculated, so that daylight savings time
@@ -396,8 +412,12 @@ check_days(Y,M,Days) ->
         calendar:valid_date(Date) orelse throw({invalid_date, Date})
     end, lists:takewhile(fun(I) -> I > 28 end, lists:reverse(Days))).
 
-%% @doc Calculates the duration in milliseconds until the next time
-%% a job is to be run.
+-doc """
+Calculate the duration in milliseconds until `Sched` next fires, relative to `NowEpochTime`.
+
+This is the stateless public entry point used by `erlcron:validate/1` and
+the test suite.
+""".
 -spec until_next_time(erlcron:milliseconds(), erlcron:run_when()) -> erlcron:milliseconds().
 until_next_time(NowEpochTime, Sched) when is_integer(NowEpochTime), is_tuple(Sched) ->
     DateTime  = erlang:posixtime_to_universaltime(to_ceiling_seconds(NowEpochTime)),
@@ -407,9 +427,9 @@ until_next_time(NowEpochTime, Sched) when is_integer(NowEpochTime), is_tuple(Sch
     {Res, _State1} = until_next_time(State),
     Res.
 
-%% @doc Calculates the duration in milliseconds until the next time
+-doc false.
+%% Calculates the duration in milliseconds until the next time
 %% a job is to be run.
-%% @private
 -spec until_next_time(state()) -> {erlcron:milliseconds(), state()}.
 until_next_time(State = #state{job={Sched, _Task}}) ->
     until_next_time2(State, Sched).
@@ -472,7 +492,8 @@ until_next_time_from_now(State, Period, Days, _NextDays) when Days > 0 ->
 to_greg_days({Y,M,D}) ->
     calendar:date_to_gregorian_days(Y,M,D).
 
-%% @doc Calculates the time since midnight in milliseconds until the next time this
+-doc false.
+%% Calculates the time since midnight in milliseconds until the next time this
 %% period is to occur during the day.
 -spec until_next_daytime(state(), normalized_period(), erlcron:milliseconds()) ->
         erlcron:milliseconds().
@@ -490,13 +511,15 @@ until_next_daytime(State, Period, MsecsFromMidnight) ->
         end
     end.
 
-%% @doc Calculates the duration in seconds until the given time occurs
+-doc false.
+%% Calculates the duration in seconds until the given time occurs
 %% tomorrow.
 -spec until_tomorrow(state(), erlcron:milliseconds()) -> erlcron:milliseconds().
 until_tomorrow(State, StartTime) ->
     StartTime + 24*3600000 - current_time(State).
 
-%% @doc Calculates the duration in milliseconds until the given period
+-doc false.
+%% Calculates the duration in milliseconds until the given period
 %% occurs several days from now.
 -spec until_days_from_now(state(), normalized_period(), integer()) ->
                                        erlcron:milliseconds().
@@ -504,14 +527,16 @@ until_days_from_now(State, Period, Days) ->
     MsecsUntilTomorrow = until_tomorrow(State, 0),
     MsecsUntilTomorrow + Days * 24 * 3600000 + until_next_daytime(State, Period, 0).
 
-%% @doc Calculates the first time in a given period.
+-doc false.
+%% Calculates the first time in a given period.
 -spec first_time(normalized_period()) -> erlcron:milliseconds().
 first_time([]) ->
     ?SEC_IN_A_DAY;
 first_time([{FromTime, _ToTime, _RepeatSec}|_]) ->
     FromTime.
 
-%% @doc Calculates the last time in a given period.
+-doc false.
+%% Calculates the last time in a given period.
 -spec last_time(normalized_period()) -> erlcron:milliseconds().
 last_time([]) ->
     ?SEC_IN_A_DAY;
@@ -523,7 +548,8 @@ last_time(Period) when is_list(Period) ->
         end,
     lists:max([F(R) || R <- Period]).
 
-%% @doc Calculates the first time in the given period after the given time.
+-doc false.
+%% Calculates the first time in the given period after the given time.
 -spec next_time(normalized_period(), erlcron:milliseconds()) -> erlcron:milliseconds().
 next_time([], _Time) ->
     ?SEC_IN_A_DAY;
@@ -542,7 +568,8 @@ next_time(Period, Time) when is_list(Period), is_integer(Time) ->
         LL -> lists:min(LL)
     end.
 
-%% @doc Returns the current time, in milliseconds past midnight in local time zone.
+-doc false.
+%% Calculates the first time in the given period after the given time.
 -spec current_time(state()) -> erlcron:milliseconds().
 current_time(State = #state{last_time=Now}) ->
     % Take ceiling of time to the next second
@@ -553,7 +580,8 @@ current_time(State = #state{last_time=Now}) ->
     {_, {H,M,S}} = current_date(State),
     to_milliseconds(S + M * 60 + H * 3600) + Msec.
 
-%% @doc Returns current date in local time
+-doc false.
+%% Returns current date in local time
 current_date(#state{last_time=Now, ref_epoch=E, epoch_at_ref=S}) when is_integer(Now), Now > 0 ->
     Elapsed = Now - S,
     to_local_datetime(Elapsed + E).
@@ -566,7 +594,8 @@ normalize_to_relative(State, Milliseconds) ->
     NowSec = current_time(State),
     Milliseconds - NowSec.
 
-%% @doc Returns a list of times given a periodic specification.
+-doc false.
+%% Returns a list of times given a periodic specification.
 -spec resolve_period([erlcron:period()] | erlcron:period()) ->
         [{erlcron:milliseconds(), erlcron:milliseconds(), erlcron:milliseconds()}].
 resolve_period([]) ->
@@ -585,7 +614,8 @@ resolve_period(Time) ->
     T = resolve_time(Time),
     [{T, T, 0}].
 
-%% @doc Returns seconds past midnight for a given time.
+-doc false.
+%% Returns seconds past midnight for a given time.
 -spec resolve_time(erlcron:cron_time()) -> erlcron:milliseconds().
 resolve_time({H, M, S}) when H < 24, M < 60, S < 60  ->
     to_milliseconds(S + M * 60 + H * 3600);
@@ -604,7 +634,8 @@ resolve_time({H,  pm}) when H < 12 ->
 resolve_time(Other) ->
     throw({invalid_time, Other}).
 
-%% @doc Returns seconds for a given duration.
+-doc false.
+%% Returns seconds for a given duration.
 -spec resolve_dur(erlcron:duration())    -> erlcron:milliseconds().
 resolve_dur({Hour, H}) when H==h; H==hr  -> to_milliseconds(Hour * 3600);
 resolve_dur({Min,  M}) when M==m; M==min -> to_milliseconds(Min  * 60);
@@ -612,7 +643,8 @@ resolve_dur({Sec,  S}) when S==s; S==sec -> to_milliseconds(Sec);
 resolve_dur({Mil,  M}) when M==ms; M==milli; M==millisecond -> Mil;
 resolve_dur(Other)                       -> throw({invalid_duration, Other}).
 
-%% @doc Returns the number of the given day of the week. See the calendar
+-doc false.
+%% Returns the number of the given day of the week. See the calendar
 %% module for day numbers.
 -spec resolve_dow(erlcron:dow()) -> [integer()].
 resolve_dow(I) when is_atom(I) ->
@@ -653,7 +685,8 @@ set_internal_time(State, RefDate, CurEpochMsec) ->
     %Now    = Msec + CurEpochMsec - FloorE,
     State1#state{last_time=CurEpochMsec}.
 
-%% @doc NewDate is in universal time.
+-doc false.
+%% NewDate is in universal time.
 fast_forward(#state{ref_epoch=OldRefEpoch, next_run=NextRun}=S, NewRefEpoch, NewDate, Count) ->
     {Msec, State1} = until_next_time(S#state{last_time=OldRefEpoch, epoch_at_ref=OldRefEpoch}),
     Span = NewRefEpoch - OldRefEpoch,

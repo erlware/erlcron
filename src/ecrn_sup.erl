@@ -2,9 +2,21 @@
 %%%
 %%% This file is provided to you under the BSD License; you may not use
 %%% this file except in compliance with the License.
+%%%-------------------------------------------------------------------
 -module(ecrn_sup).
-
 -behaviour(supervisor).
+
+-moduledoc """
+Top-level one-for-one supervisor for the erlcron application.
+
+Starts and supervises three permanent children:
+
+- **`ecrn_cron_sup`** — Simple-one-for-one supervisor that owns all job
+  agent processes.
+- **`ecrn_reg`** — Job registry mapping job references to agent PIDs.
+- **`ecrn_control`** — Global clock controller used for time
+  manipulation and job cancellation.
+""".
 
 %% API
 -export([start_link/0]).

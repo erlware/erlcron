@@ -3,11 +3,23 @@
 %%% This file is provided to you under the BSD License; you may not use
 %%% this file except in compliance with the License.
 %%%-------------------------------------------------------------------
-%%% @doc
-%%%  Provides testing/fast forward control for the system
 -module(ecrn_control).
-
 -behaviour(gen_server).
+
+-moduledoc """
+Global clock controller for the erlcron scheduler.
+
+`ecrn_control` is a singleton gen_server that maintains the reference
+datetime used by all job agents.  During normal operation the reference
+time tracks the real system clock.  For testing, the clock can be
+advanced to any future point via `set_datetime/2`; every `ecrn_agent`
+process will then fast-forward, executing any jobs whose scheduled time
+falls within the elapsed interval before settling at the new reference
+time.
+
+The server also provides the `cancel/1` entry point that delegates to
+`ecrn_reg` and is exposed as `erlcron:cancel/1`.
+""".
 
 %% API
 -export([start_link/0,
@@ -44,14 +56,12 @@ start_link() ->
 cancel(AlarmRef) ->
     ecrn_reg:cancel(AlarmRef).
 
-%% @doc
-%% Returns current datetime with reference adjustment in universal time zone.
+-doc "Return the current datetime (universal) with the reference-clock adjustment.".
 -spec datetime() -> {calendar:datetime(), erlcron:milliseconds()}.
 datetime() ->
     gen_server:call(?SERVER, datetime).
 
-%% @doc
-%% Returns current datetime with reference adjustment in universal/local time zone.
+-doc "Return the current datetime in universal or local time with the reference-clock adjustment.".
 -spec datetime(local|universal) -> {calendar:datetime(), erlcron:milliseconds()}.
 datetime(universal) ->
     datetime();
@@ -59,12 +69,12 @@ datetime(local) ->
     {DT, Epoch} = datetime(),
     {erlang:universaltime_to_localtime(DT), Epoch}.
 
-%% @doc Returns reference datetime in universal time zone.
+-doc "Return the reference datetime (universal) used as the scheduler's clock base.".
 -spec ref_datetime() -> {calendar:datetime(), erlcron:milliseconds()}.
 ref_datetime() ->
     gen_server:call(?SERVER, ref_datetime).
 
-%% @doc Returns reference datetime in universal or local time zone.
+-doc "Return the reference datetime in universal or local time.".
 -spec ref_datetime(local|universal) -> {calendar:datetime(), erlcron:milliseconds()}.
 ref_datetime(universal) ->
     ref_datetime();
@@ -72,7 +82,7 @@ ref_datetime(local) ->
     {DT, Epoch} = ref_datetime(),
     {erlang:universaltime_to_localtime(DT), Epoch}.
 
-%% @doc sets the date-time for the erlcron
+-doc "Set the scheduler clock to `DateTime` (local time).".
 -spec set_datetime(calendar:datetime()) -> ok | {error, term()}.
 set_datetime(DateTime) ->
     set_datetime(DateTime, local).
@@ -83,12 +93,12 @@ set_datetime(DT={_,_}, local) ->
 set_datetime(DateTime={_,_}, universal) ->
     gen_server:call(?SERVER, {set_datetime, DateTime}, infinity).
 
-%% @doc Reset reference datetime to current epoch datetime
+-doc "Reset the scheduler clock to the current real system time.".
 -spec reset_datetime() -> ok | {error, term()}.
 reset_datetime() ->
     gen_server:call(?SERVER, reset_datetime, infinity).
 
-%% @doc sets the date-time with the erlcron on all nodes
+-doc "Set the scheduler clock to `DateTime` on the given nodes.".
 -spec multi_set_datetime([node()], calendar:datetime()) -> {Replies, BadNodes} when
     Replies :: [{node(), ok | {error, term()}}],
     BadNodes :: [node()].

@@ -3,11 +3,19 @@
 %%% This file is provided to you under the BSD License; you may not use
 %%% this file except in compliance with the License.
 %%%-------------------------------------------------------------------
-%%% @doc
-%%%   Simple one for one supervisor for ecd_chron jobs.
 -module(ecrn_cron_sup).
-
 -behaviour(supervisor).
+
+-moduledoc """
+Simple-one-for-one supervisor that owns all running cron job processes.
+
+Each call to `add_job/3` starts one `ecrn_agent` child under this
+supervisor.  Jobs are transient: a job that finishes normally (e.g. a
+`once` job after it has run) is not restarted.  A job that crashes
+unexpectedly is restarted up to the intensity limit configured by the
+`sup_job_intensity` and `sup_job_period` application environment
+variables (defaults: 3 restarts in 10 seconds).
+""".
 
 %% API
 -export([start_link/0,
@@ -29,14 +37,18 @@
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-%% @doc
-%% Add a cron job to be supervised
+-doc "Add a cron job under supervision (using default cron options).".
 -spec add_job(erlcron:job_ref(), erlcron:job()) -> erlcron:job_ref().
 add_job(JobRef, Job) ->
     add_job(JobRef, Job, #{}).
 
-%% @doc
-%% Add a cron job to be supervised
+-doc """
+Add a cron job under supervision with the given options.
+
+Job-level options in `Job` (when it is a map or tuple-with-opts) are
+merged with `CronOpts`, with job-level options taking precedence.
+Returns `ignored` when the job is excluded by hostname restrictions.
+""".
 -spec add_job(erlcron:job_ref(), erlcron:job(), erlcron:cron_opts()) ->
     erlcron:job_ref() | ignored | already_started | {error, term()}.
 add_job(JobRef, Job = #{}, CronOpts) when is_map(CronOpts) ->
@@ -71,14 +83,12 @@ parse_job(Job) ->
     {Fun,  Opts2} = get_opt(execute,  Opts1),
     {{When, Fun}, Opts2}.
 
-%% @doc
-%% Get a list of all active jobs
+-doc "Return PIDs of all currently supervised job processes.".
 -spec all_jobs() -> [pid()].
 all_jobs() ->
     [P || {_,P,_,_} <- supervisor:which_children(?SERVER)].
 
-%% @doc
-%% Terminate a job
+-doc "Terminate the job process identified by `Pid`.".
 terminate(Pid) when is_pid(Pid) ->
     supervisor:terminate_child(?SERVER, Pid).
 

@@ -3,11 +3,16 @@
 %%% This file is provided to you under the BSD License; you may not use
 %%% this file except in compliance with the License.
 %%%-------------------------------------------------------------------
-%%% @doc
-%%%   This provides simple pid registration for the server.
 -module(ecrn_reg).
-
 -behaviour(gen_server).
+
+-moduledoc """
+Job registry that maps job references to their agent PIDs.
+
+`ecrn_reg` maintains a bidirectional mapping between `t:erlcron:job_ref/0`
+values and the `t:pid/0` of the corresponding `ecrn_agent` process.  It
+is used by `ecrn_control:cancel/1` and `erlcron:get_all_jobs/0`.
+""".
 
 %% API
 -export([start_link/0,
@@ -37,56 +42,47 @@
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
-%% @doc
-%%   Register an arbitrary value with the system, under a set of keys
+-doc "Register a job's PID under the given reference key.".
 -spec register(erlcron:job_ref(), term()) -> boolean().
 register(Key, Pid) when (is_atom(Key) orelse is_reference(Key) orelse is_binary(Key)), is_pid(Pid) ->
     gen_server:call(?SERVER, {register, Key, Pid}).
 
-%% @doc
-%%   Remove the value registered under a que or set of keys
+-doc "Remove the registration for the given reference key.".
 -spec unregister(erlcron:job_ref()) -> ok.
 unregister(Key) when is_atom(Key); is_reference(Key); is_binary(Key) ->
     gen_server:cast(?SERVER, {unregister, Key}).
 
-%% @doc
-%% Get a pid by reference key.
+-doc "Look up the PID registered under `Key`. Returns `undefined` if not found.".
 -spec get(erlcron:job_ref()) -> pid() | undefined.
 get(Key) when is_atom(Key); is_reference(Key); is_binary(Key) ->
     gen_server:call(?SERVER, {get, Key}).
 
-%% @doc
-%% Get job refs associated with the pid
+-doc "Return all job references registered under the given `Pid`.".
 -spec get_refs(pid()) -> [erlcron:job_ref()].
 get_refs(Pid) when is_pid(Pid) ->
-    lists:sort(gen_server:call(?SERVER, {get_refs, Pid})).
+    gen_server:call(?SERVER, {get_refs, Pid}).
 
-%% @doc
-%% Cancel all jobs assigned to the given key
+-doc "Cancel the job registered under `Key` by sending a shutdown to its process.".
 -spec cancel(term()) -> boolean().
 cancel(Key) when is_atom(Key); is_reference(Key); is_binary(Key) ->
     gen_server:call(?SERVER, {cancel, Key}).
 
-%% @doc
-%%  Get all the values.
+-doc "Return all `{Ref, Pid}` pairs currently registered.".
 -spec get_all() -> [{term(), term()}].
 get_all() ->
     gen_server:call(?SERVER, get_all).
 
-%% @doc
-%%  Get all registered Pids.
+-doc "Return the PIDs of all registered job agents.".
 -spec get_all_pids() -> [pid()].
 get_all_pids() ->
     gen_server:call(?SERVER, get_all_pids).
 
-%% @doc
-%%  Get all registered job references.
+-doc "Return all registered job references.".
 -spec get_all_refs() -> [erlcron:job_ref()].
 get_all_refs() ->
     gen_server:call(?SERVER, get_all_refs).
 
-%% @doc
-%%  stop this server
+-doc false.
 -spec stop() -> ok.
 stop() ->
     gen_server:call(?SERVER, stop).
@@ -132,7 +128,7 @@ handle_call(stop, _From, State) ->
 handle_call(get_all, _From, State = #state{ref2pid=Map}) ->
     {reply, maps:to_list(Map), State};
 handle_call(get_all_refs, _From, State = #state{ref2pid=Map}) ->
-    {reply, maps:keys(Map), State};
+    {reply, lists:sort(maps:keys(Map)), State};
 handle_call(get_all_pids, _From, State = #state{pid2ref=Map}) ->
     {reply, maps:keys(Map), State}.
 
@@ -234,11 +230,11 @@ general_tests(_) ->
     ?assertMatch(Self,       ecrn_reg:get(c)),
     ?assertMatch(Self,       ecrn_reg:get(b)),
     ?assertMatch(Self,       ecrn_reg:get(Ref)),
-    ?assertMatch([b,c,Ref],  ecrn_reg:get_refs(Self)),
+    ?assertMatch([b,c,Ref],  lists:sort(ecrn_reg:get_refs(Self))),
     ?assertMatch(false,      ecrn_reg:register(b,   Self)),
     ?assertMatch(false,      ecrn_reg:register(c,   Self)),
     ?assertMatch(false,      ecrn_reg:register(Ref, Self)),
-    ?assertMatch([b,c,Ref],  ecrn_reg:get_all_refs()),
+    ?assertMatch([b,c,Ref],  lists:sort(ecrn_reg:get_all_refs())),
     ?assertMatch([Self],     ecrn_reg:get_all_pids()),
     ecrn_reg:unregister(b),
     ?assertMatch([c,Ref],    ecrn_reg:get_all_refs()),
