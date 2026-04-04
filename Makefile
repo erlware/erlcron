@@ -39,7 +39,7 @@ get-deps:
 compile:
 	$(REBAR) compile
 
-doc:
+doc docs:
 	$(REBAR) ex_doc
 
 eunit: compile clean-common-test-data
