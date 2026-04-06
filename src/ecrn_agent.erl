@@ -17,12 +17,13 @@ the sleep duration is capped at 30 minutes; the next execution time is then
 recalculated from scratch at each wake-up.
 
 The module also exposes the schedule normalisation and next-run calculation
-logic through the public functions `normalize/2` and `until_next_time/2`,
-which are used by `erlcron:validate/1` and the test suite.
+logic through the public functions `normalize/2`, and `until_next_time/2`,
+which are used by the test suite.
 """.
 
 %% API
 -export([start_link/3,
+         start_link/4,
          cancel/1,
          next_run/1,
          get_datetime/1,
@@ -30,6 +31,7 @@ which are used by `erlcron:validate/1` and the test suite.
          set_datetime/3,
          set_datetime/4,
          recalculate/1,
+         info/1,
          validate/1,
          until_next_time/2,
          normalize/2]).
@@ -52,6 +54,10 @@ which are used by `erlcron:validate/1` and the test suite.
                 orig_when
                }).
 
+-type job() :: #job{}.
+
+-export_type([job/0]).
+
 -define(MILLISECONDS,      1000).
 -define(WAIT_BEFORE_RUN,   1000).
 -define(MAX_TIMEOUT_SEC,   1800).
@@ -71,15 +77,27 @@ which are used by `erlcron:validate/1` and the test suite.
 %%%===================================================================
 
 -doc "Start a job agent linked to the calling process".
+-spec start_link(erlcron:job_ref(), erlcron:job(), 
+                 undefined | fun(() -> any()) | fun((erlcron:job_ref(), calendar:datetime()) -> any()),
+                 erlcron:job_opts()) ->
+        ignore | {error, Reason::term()} | {ok, pid()}.
+start_link(JobRef, {When, Task}, Fun, JobOpts) when (is_reference(JobRef) orelse is_binary(JobRef) orelse is_atom(JobRef))
+                                                  , (is_function(Fun, 0) orelse is_function(Fun, 2))
+                                                  , is_map(JobOpts) ->
+    {Sched, DateTime, ActualMsec} = normalize_when(When),
+    Spec = [JobRef, #job{schedule=Sched, task=Task, lambda=Fun}, DateTime, ActualMsec, JobOpts],
+    case is_atom(JobRef) of
+        true  -> gen_server:start_link({local, JobRef}, ?MODULE, Spec, []);
+        false -> gen_server:start_link(?MODULE, Spec, [])
+    end.
+
+-doc #{deprecated => "Use start_link/4 instead."}.
 -spec start_link(erlcron:job_ref(), erlcron:job(), erlcron:job_opts()) ->
-                             ignore | {error, Reason::term()} | {ok, pid()}.
-start_link(JobRef, {When, _Task} = Job, JobOpts) when (is_reference(JobRef) orelse is_binary(JobRef))
-                                                    , is_map(JobOpts) ->
-    {Sched, DateTime, ActualMsec} = normalize_when(When),
-    gen_server:start_link(?MODULE, [JobRef, Job, Sched, DateTime, ActualMsec, JobOpts], []);
-start_link(JobRef, {When, _Task} = Job, JobOpts) when is_atom(JobRef), is_map(JobOpts) ->
-    {Sched, DateTime, ActualMsec} = normalize_when(When),
-    gen_server:start_link({local, JobRef}, ?MODULE, [JobRef, Job, Sched, DateTime, ActualMsec, JobOpts], []).
+        ignore | {error, Reason::term()} | {ok, pid()}.
+start_link(JobRef, {_When, Task} = Job, JobOpts) ->
+    Fun = ecrn_cron_sup:check_task(JobRef, Task),
+    start_link(JobRef, Job, Fun, JobOpts).
+
 
 -spec get_datetime(pid()) -> calendar:datetime().
 get_datetime(Pid) ->
@@ -118,20 +136,24 @@ recalculate(Pid) ->
 next_run(Pid) ->
     gen_server:call(Pid, next_run).
 
+-spec info(pid()) -> #job{}.
+info(Pid) when is_pid(Pid); is_atom(Pid) ->
+    gen_server:call(Pid, info).
+
 -doc """
-Validate a `t:erlcron:run_when/0` spec without scheduling it.
+Validate a `t:erlcron:schedule/0` spec without scheduling it.
 
 Returns `ok` when the spec is syntactically and semantically valid,
 or `{error, Reason}` otherwise.
 """.
--spec validate(erlcron:run_when()) -> ok | {error, term()}.
+-spec validate(erlcron:schedule()) -> ok | {error, term()}.
 validate(Spec) ->
     State = #state{job=undefined, job_ref=undefined},
     {DateTime, ActualMsec} = ecrn_control:ref_datetime(universal),
     NewState = set_internal_time(State, DateTime, ActualMsec),
     try
         NormalSpec = normalize(Spec, DateTime),
-        {Msec,_}   = until_next_time(NewState#state{job={NormalSpec, undefined}}),
+        {Msec,_}   = until_next_time(NewState#state{job=#job{schedule=NormalSpec}}),
         Msec > 0 orelse throw({specified_time_past_seconds_ago, to_seconds(Msec)}),
         ok
     catch
@@ -143,9 +165,10 @@ validate(Spec) ->
 %%% gen_server callbacks
 %%%===================================================================
 %% @private
-init([JobRef, {When, Task}, Sched, DateTime, ActualMsec, JobOpts]) ->
+init([JobRef, #job{schedule=When} = Job, DateTime, ActualMsec, JobOpts]) ->
     try
-        State = set_internal_time(#state{job_ref=JobRef, job={Sched, Task}, opts=JobOpts,
+        State = set_internal_time(#state{job_ref=JobRef, job=Job,
+                                         opts=JobOpts,
                                          last_run=0, next_run=0, orig_when=When},
                                   DateTime, ActualMsec),
         case until_next_milliseconds(State) of
@@ -157,7 +180,7 @@ init([JobRef, {When, Task}, Sched, DateTime, ActualMsec, JobOpts]) ->
         end
     catch ?EXCEPTION(_, E, ST) ->
         ?LOG_ERROR([{error, "Error setting timeout for job"},
-                    {job_ref, JobRef}, {run_when, When},
+                    {job_ref, JobRef}, {schedule, When},
                     {reason, E},
                     {stack,  ?GET_STACK(ST)}]),
         {stop, normal}
@@ -182,13 +205,15 @@ handle_call({set_datetime, DateTime, CurrEpochMsec}, _From, State) ->
                 {stop, normal, ok, State}
         end
     catch ?EXCEPTION(_, E, ST) ->
-        ?LOG_ERROR([{error, "Error setting timeout for job"},
-                    {job_ref, State#state.job_ref},
-                    {run_when, element(1, State#state.orig_when)},
-                    {reason, E},
-                    {stack,  ?GET_STACK(ST)}]),
+        ?LOG_ERROR([{error,    "Error setting timeout for job"},
+                    {job_ref,  State#state.job_ref},
+                    {schedule, element(1, State#state.orig_when)},
+                    {reason,   E},
+                    {stack,    ?GET_STACK(ST)}]),
         reply_and_wait({error, E}, State)
     end;
+handle_call(info, _From, #state{job=Job} = State) ->
+    reply_and_wait(Job, State);
 handle_call(Msg, _From, State) ->
     {stop, State, {not_implemented, Msg}}.
 
@@ -239,9 +264,9 @@ process_timeout(#state{last_time=LastTime, next_run=NextRun, last_run=LastRun}=S
         end,
     reply_and_wait(Reply, State).
 
-do_job_run(#state{job_ref=Ref, next_run=Time, job={When, Job}, opts=Opts} = S) ->
+do_job_run(#state{job_ref=Ref, next_run=Time, job=#job{schedule=When, lambda=Fun}, opts=Opts} = S) ->
     Res  = do_job_start(Ref, maps:get(on_job_start, Opts, undefined)),
-    Res /= ignore andalso execute(Job, Ref, Time, maps:get(on_job_end, Opts, undefined)),
+    Res /= ignore andalso execute(Fun, Ref, Time, maps:get(on_job_end, Opts, undefined)),
     case When of
         {once, _} ->
             stop;
@@ -257,15 +282,7 @@ do_job_start(Ref, F) when is_function(F, 1) -> F(Ref).
 execute(Job, Ref, Time, OnEnd) when is_function(Job, 2) ->
     safe_spawn(Ref, fun() -> Job(Ref, Time) end, OnEnd);
 execute(Job, Ref, _, OnEnd) when is_function(Job, 0) ->
-    safe_spawn(Ref, Job, OnEnd);
-execute({M, F}, Ref, Time, OnEnd) when is_atom(M), is_atom(F) ->
-    %% The exported function is checked for arity 0 or 2 when the job is added
-    case erlang:function_exported(M, F, 2) of
-        true  -> safe_spawn(Ref, fun() -> M:F(Ref, Time) end, OnEnd);
-        false -> safe_spawn(Ref, fun() -> M:F()          end, OnEnd)
-    end;
-execute({M, F, A}, Ref, _Time, OnEnd) when is_atom(M), is_atom(F), is_list(A) ->
-    safe_spawn(Ref, fun() -> apply(M, F, A) end, OnEnd).
+    safe_spawn(Ref, Job, OnEnd).
 
 safe_spawn(Ref, Fun, _OnEnd = {M,F}) when is_atom(M), is_atom(F) ->
     safe_spawn(Ref, Fun, fun(JobRef, Res) -> M:F(JobRef, Res) end);
@@ -335,7 +352,7 @@ round_timeout(Milliseconds) ->
         {weekly, [integer()], normalized_period()} |
         {monthly,integer(),   normalized_period()}.
 
--spec normalize(erlcron:run_when(), calendar:datetime()) -> normalized_sched().
+-spec normalize(erlcron:schedule(), calendar:datetime()) -> normalized_sched().
 normalize({once,  I}, _) when is_integer(I) ->
     {once, {relative, to_milliseconds(I)}};
 normalize({once, {H,M,S}=T}, {_, Time}) when is_integer(H), is_integer(M), is_integer(S)
@@ -357,7 +374,7 @@ normalize({monthly, Days, Period}=T, {{Y,M,_},_}) when is_list(Days) ->
     end,
     {PosDays, NegDays} = lists:partition(fun(I) -> I > 0 end, Days),
     {ThisNextMonthDays, _State} =
-        update_dom(Y,M, {undefined, {0,0, PosDays, NegDays}}, #state{job={T, undefined}}),
+        update_dom(Y,M, {undefined, {0,0, PosDays, NegDays}}, #state{job=#job{schedule=T}}),
     {monthly, ThisNextMonthDays, lists:sort(resolve_period(Period))};
 normalize(Other, _) ->
     throw({invalid_schedule, Other}).
@@ -365,13 +382,12 @@ normalize(Other, _) ->
 update_dom(Y,M, {_, {Y,M,_,_}}=When, State) ->
     {When, State};
 update_dom(Y,M, {_, {_,_,PosDays,NegDays}},
-           State = #state{job = {{monthly, _, _Period}, Task}}) ->
+           State = #state{job = #job{schedule={monthly, _, _Period}} = Job}) ->
     {_,  _, ThisMonthDays}   = month_days(Y, M, PosDays, NegDays, true),
     {NY,NM, NextMonFirstDay} = next_month_days(Y, M, PosDays, NegDays),
     ThisNextMonthDays = {ThisMonthDays, NY, NM, NextMonFirstDay},
     When              = {ThisNextMonthDays, {Y,M,PosDays,NegDays}},
-    {When, State#state{job={{monthly, When}, Task}}}.
-
+    {When, State#state{job=Job#job{schedule={monthly, When}}}}.
 
 next_month_days(Y, 12, PosDays, NegDays) ->
     month_days(Y+1, 1, PosDays, NegDays, false);
@@ -415,14 +431,13 @@ check_days(Y,M,Days) ->
 -doc """
 Calculate the duration in milliseconds until `Sched` next fires, relative to `NowEpochTime`.
 
-This is the stateless public entry point used by `erlcron:validate/1` and
-the test suite.
+This is the stateless public entry point used by the test suite.
 """.
--spec until_next_time(erlcron:milliseconds(), erlcron:run_when()) -> erlcron:milliseconds().
+-spec until_next_time(erlcron:milliseconds(), erlcron:schedule()) -> erlcron:milliseconds().
 until_next_time(NowEpochTime, Sched) when is_integer(NowEpochTime), is_tuple(Sched) ->
     DateTime  = erlang:posixtime_to_universaltime(to_ceiling_seconds(NowEpochTime)),
     NormSched = normalize(Sched, DateTime),
-    State     = set_internal_time(#state{job={NormSched, undefined}},
+    State     = set_internal_time(#state{job=#job{schedule=NormSched}},
                                   DateTime, NowEpochTime),
     {Res, _State1} = until_next_time(State),
     Res.
@@ -431,7 +446,7 @@ until_next_time(NowEpochTime, Sched) when is_integer(NowEpochTime), is_tuple(Sch
 %% Calculates the duration in milliseconds until the next time
 %% a job is to be run.
 -spec until_next_time(state()) -> {erlcron:milliseconds(), state()}.
-until_next_time(State = #state{job={Sched, _Task}}) ->
+until_next_time(State = #state{job=#job{schedule=Sched}}) ->
     until_next_time2(State, Sched).
 
 until_next_time2(State, {once, {relative, Msec}}) when is_integer(Msec) ->

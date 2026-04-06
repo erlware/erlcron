@@ -31,7 +31,8 @@ cron_test_() ->
             {{daily, {1, 0, pm}}, {erlang, system_time, []}, #{id => one}},
             {{daily, {2, 0, pm}}, fun() -> erlang:system_time() end, #{id => <<"two">>}},
             {{daily, {3, 0, pm}}, fun(_JobRef, _Now) -> erlang:system_time() end, #{id => Ref}},
-            #{id => four, interval => {daily, {1, 0, pm}}, execute => {erlang, system_time, []}}
+            #{id => four, interval => {daily, {1, 0, pm}}, execute => {erlang, system_time, []}},
+            #{id => five, schedule => {daily, {2, 0, pm}}, task => {erlang, system_time, []}}
         ]),
         disable_sasl_logger(),
         application:start(erlcron),
@@ -45,12 +46,13 @@ cron_test_() ->
     }.
 
 check_startup_jobs(Ref) ->
-    ?assertMatch([_, _, _, _], ecrn_cron_sup:all_jobs()),
-    ?assertEqual([four, one, Ref, <<"two">>], ecrn_reg:get_all_refs()),
+    ?assertMatch([_, _, _, _, _], ecrn_cron_sup:all_jobs()),
+    ?assertEqual([five, four, one, Ref, <<"two">>], ecrn_reg:get_all_refs()),
     ?assert(is_pid(ecrn_reg:get(one))),
     ?assert(is_pid(ecrn_reg:get(<<"two">>))),
     ?assert(is_pid(ecrn_reg:get(Ref))),
-    ?assert(is_pid(ecrn_reg:get(four))).
+    ?assert(is_pid(ecrn_reg:get(four))),
+    ?assert(is_pid(ecrn_reg:get(five))).
 
 cron_bad_job_spec_test_() ->
     {setup,
@@ -68,7 +70,7 @@ cron_bad_job_spec_test_() ->
          ?_assertMatch(
              {error,
                  {bad_return, {{ecrn_app,start,[normal,[]]},
-                     {'EXIT', {{module_not_loaded,one, {'$$$bad_module',system_time,[]}, nofile}, [_|_]}}}}},
+                     {'EXIT', {{module_not_loaded,one, {'$$$bad_module',system_time,[0]}, nofile}, [_|_]}}}}},
              begin
                  application:set_env(erlcron, crontab, [
                      {{daily, {1, 0, pm}}, {'$$$bad_module', system_time, []}, #{id => one}}
@@ -93,7 +95,7 @@ cron_bad_job_spec_test_() ->
                 {bad_return,
                     {{ecrn_app,start,[normal,[]]},
                      {'EXIT',
-                         {{wrong_arity_of_job_task, one, "erlang:system_time/3"},
+                         {{invalid_job_task, one, {erlang, system_time, [1,2,3]}},
                           [_|_]}}}}},
              begin
                  application:set_env(erlcron, crontab, [

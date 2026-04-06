@@ -10,6 +10,7 @@
 -import(ecrn_startup_test, [disable_sasl_logger/0, enable_sasl_logger/0]).
 
 -include_lib("eunit/include/eunit.hrl").
+-include("internal.hrl").
 
 -define(FuncTest(A), {atom_to_list(A), fun A/0}).
 
@@ -41,7 +42,10 @@ cron_test_() ->
        ?FuncTest(cron),
        ?FuncTest(cron_run_job_on_host),
        ?FuncTest(cron_skip_job_on_host),
-       ?FuncTest(validation)
+       ?FuncTest(validation),
+       ?FuncTest(info_job),
+       ?FuncTest(start_link4),
+       ?FuncTest(map_job_schedule_task)
       ]},
       {timeout, 30, [
        ?FuncTest(weekly)
@@ -183,7 +187,7 @@ cron() ->
     Job5 = {{daily, {3, 30, pm}}, {?MODULE, sample_arity2},
               #{on_job_end => fun(_Ref, {ok, Res}) -> Self ! Res end}},
     test5 = erlcron:cron(test5, Job5),
-    Job6 = {{daily, {3, 30, pm}}, {?MODULE, sample_arityN, [test6, Self]}},
+    Job6 = {{daily, {3, 30, pm}}, fun(Ref, _) -> sample_arityN(Ref, Self) end},
     test6 = erlcron:cron(test6, Job6),
 
     ?assertMatch(1, collect({ack, Ref1},  1000, 1)),
@@ -242,6 +246,51 @@ validation() ->
     ?assertMatch({error,{invalid_days_in_schedule,{monthly,"A",{55,am}}}},
                     ecrn_agent:validate({monthly, 65, {55, am}})).
 
+%% info/1 returns the internal #job{} record for a running job.
+%% The record is a 4-tuple {job, Schedule, Task, Lambda}.
+info_job() ->
+    erlcron:set_datetime({{2000,1,1},{8,0,0}}),
+    Ref = erlcron:at(info_job_ref, {9,0,0}, fun() -> ok end),
+    Pid = ecrn_reg:get(Ref),
+    Info = ecrn_agent:info(Pid),
+    ?assert(is_record(Info, job)),
+    ?assertEqual({once, {absolute,32400000}}, Info#job.schedule),
+    ?assert(is_function(Info#job.lambda, 0)),
+    erlcron:cancel(Ref).
+
+%% start_link/4 accepts an explicit callable fun/0 or fun/2.
+start_link4() ->
+    erlcron:set_datetime({{2000,1,1},{8,0,0}}),
+    Self = self(),
+    %% fun/0
+    Ref0 = make_ref(),
+    Fun0 = fun() -> Self ! {ack0, Ref0} end,
+    {ok, _} = ecrn_agent:start_link(Ref0, {{once, {8,0,1}}, task0}, Fun0, #{}),
+    ?assertMatch(1, collect({ack0, Ref0}, 2000, 1)),
+    %% fun/2 - receives (JobRef, DateTime) as arguments
+    Ref2 = make_ref(),
+    Fun2 = fun(R, _DT) -> Self ! {ack2, R} end,
+    {ok, _} = ecrn_agent:start_link(Ref2, {{once, {8,0,1}}, task2}, Fun2, #{}),
+    ?assertMatch(1, collect({ack2, Ref2}, 2000, 1)).
+
+%% Map-based jobs support 'schedule' and 'task' keys (new names).
+%% The old 'interval'/'execute' keys remain supported for backward compat.
+map_job_schedule_task() ->
+    erlcron:set_datetime({{2000,1,1},{12,59,59}}),
+    Self = self(),
+    Ref  = make_ref(),
+    %% New key names
+    Job  = #{id => map_job_new, schedule => {once, {1, 0, pm}},
+             task => fun() -> Self ! {Ref, new} end},
+    map_job_new = erlcron:cron(Job),
+    ?assertMatch(1, collect({Ref, new}, 2000, 1)),
+    %% Old key names still work
+    Job2 = #{id => map_job_old, interval => {once, {1, 0, pm}},
+             execute => fun() -> Self ! {Ref, old} end},
+    erlcron:set_datetime({{2000,1,1},{12,59,59}}),
+    map_job_old = erlcron:cron(Job2),
+    ?assertMatch(1, collect({Ref, old}, 2000, 1)).
+
 weekly() ->
     DateF = fun (Offset) -> {2000, 1, 1 + Offset} end,
     erlcron:set_datetime({DateF(0), {7,0,0}}),
@@ -261,6 +310,43 @@ weekly_every() ->
     Pattern = [3, 0, 3, 0, 0, 0, 0, 3],
     collect_weekly(DateF, {8, 0, 0}, {10, 0, 0}, Pattern),
     erlcron:cancel(weekly).
+
+%%%===================================================================
+%%% Standalone unit tests (no application required)
+%%%===================================================================
+
+%% check_task/2 now returns the resolved fun instead of just validating.
+check_task_test_() ->
+    [?FuncTest(check_task_mfa_returns_fun),
+     ?FuncTest(check_task_mfa_empty_returns_fun),
+     ?FuncTest(check_task_fun0_passthrough),
+     ?FuncTest(check_task_fun2_passthrough),
+     ?FuncTest(check_task_rejects_mfa_with_args)].
+
+%% {M, F} - checks arities [0, 2], returns the matching fun.
+check_task_mfa_returns_fun() ->
+    F = ecrn_cron_sup:check_task(r, {erlang, self}),
+    ?assert(is_function(F, 0)).
+
+%% {M, F, []} - restricts to arity 0 only.
+check_task_mfa_empty_returns_fun() ->
+    F = ecrn_cron_sup:check_task(r, {erlang, garbage_collect, []}),
+    ?assert(is_function(F, 0)).
+
+%% fun/0 is returned as-is.
+check_task_fun0_passthrough() ->
+    Fun = fun() -> ok end,
+    ?assertEqual(Fun, ecrn_cron_sup:check_task(r, Fun)).
+
+%% fun/2 is returned as-is.
+check_task_fun2_passthrough() ->
+    Fun = fun(_, _) -> ok end,
+    ?assertEqual(Fun, ecrn_cron_sup:check_task(r, Fun)).
+
+%% {M, F, [arg, ...]} with non-empty args is no longer supported.
+check_task_rejects_mfa_with_args() ->
+    ?assertError({invalid_job_task, r, _},
+                 ecrn_cron_sup:check_task(r, {io, format, ["~p~n", []]})).
 
 %%%===================================================================
 %%% Internal Functions

@@ -343,15 +343,15 @@ supported here.
             {{daily, {every, {23, sec}, {between, {3, pm}, {3, 30, pm}}}},
              {io, fwrite, ["Hello, world!~n"]}},
 
-            %% Map-based job spec (id, interval, and execute are required)
+            %% Map-based job spec (id, schedule, and task are required)
             #{id       => test_job,
-              interval => {daily, {1, 0, pm}},
-              execute  => {io, fwrite, ["Hello, world!~n"]}},
+              schedule => {daily, {1, 0, pm}},
+              task     => {io, fwrite, ["Hello, world!~n"]}},
 
             %% Map-based spec with additional options
             #{id        => another_job,
-              interval  => {daily, {1, 0, pm}},
-              execute   => {io, fwrite, ["Hello, world!~n"]},
+              schedule  => {daily, {1, 0, pm}},
+              task      => {io, fwrite, ["Hello, world!~n"]},
               hostnames => ["myhost"]}
         ]},
 

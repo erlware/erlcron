@@ -23,7 +23,7 @@ time-based behaviour in automated test suites.
 - **`{once, When}`** — Run a job exactly once at the given time or
   after the given number of seconds.
 - **`{daily, Period}`** — Run a job every day at the given time, list
-  of times, or on a recurring interval optionally bounded by a time
+  of times, or on a recurring schedule optionally bounded by a time
   window.
 - **`{weekly, DOW, Period}`** — Run a job on the specified day(s) of
   the week. `DOW` is a day atom (`mon`..`sun`) or a list of day atoms.
@@ -103,7 +103,7 @@ erlcron:cancel(my_daily_job).
               cron_opts/0,
               job_start/0,
               job_end/0,
-              run_when/0,
+              schedule/0,
               callable/0,
               dow/0,
               dom/0,
@@ -132,18 +132,20 @@ erlcron:cancel(my_daily_job).
 -type dom()        :: integer().
 -type dow_day()    :: mon | tue | wed | thu | fri | sat | sun.
 -type dow()        :: dow_day() | [dow_day()].
--type callable()   :: {M :: module(), F :: atom(), A :: [term()]} |
-                      fun(() -> term()) |
+-type callable()   :: fun(() -> term()) |
                       fun((JobRef::job_ref(), calendar:datetime()) -> term()).
--type run_when()   :: {once, cron_time()}
+-type task()       :: {M :: module(), F :: atom()} |
+                      {M :: module(), F :: atom(), []} |
+                      callable().
+-type schedule()   :: {once, cron_time()}
                     | {once, seconds()}
                     | {daily, period()}
                     | {weekly, dow(), period()}
                     | {monthly, dom()|[dom()], period()}.
 
--type  job()      :: {run_when(), callable()}
-                   | {run_when(), callable(), job_opts()}
-                   | #{id => job_ref(), interval => run_when(), execute => callable(), _ => any()}.
+-type  job()      :: {schedule(), task()}
+                   | {schedule(), task(), job_opts()}
+                   | #{id => job_ref(), schedule => schedule(), task => task(), _ => any()}.
 
 %% should be opaque but dialyzer does not allow it
 -doc """
@@ -199,7 +201,7 @@ Per-job options map.
 %%%===================================================================
 
 -doc "Validate a schedule spec without scheduling the job.".
--spec validate(run_when()) -> ok | {error, term()}.
+-spec validate(schedule()) -> ok | {error, term()}.
 validate(Spec) ->
     ecrn_agent:validate(Spec).
 
@@ -241,7 +243,7 @@ Schedule a job to run once at `When`.
 `When` can be a `t:cron_time/0` (e.g. `{3, 30, pm}`) or an integer
 number of seconds from now.
 """.
--spec at(cron_time() | seconds(), callable()) ->
+-spec at(cron_time() | seconds(), task()) ->
         job_ref() | ignored | already_started | {error, term()}.
 at(When, Fun) ->
     at(make_ref(), When, Fun).
