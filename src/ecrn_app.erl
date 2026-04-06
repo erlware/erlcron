@@ -50,7 +50,7 @@ start(_StartType, _StartArgs) ->
             Def = application:get_env(erlcron, defaults, #{}),
             is_map(Def) orelse
               erlang:error("erlcron/defaults config must be a map!"),
-            ?LOG_INFO("CRON: started on host ~p using defaults: ~1024p", [H, Def]),
+            ?LOG_INFO("CRON: started on host ~s using defaults: ~1024p", [H, Def]),
             setup(Def),
             {ok, Pid};
         Error ->

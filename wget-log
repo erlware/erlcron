@@ -1,0 +1,13 @@
+--2026-04-06 08:52:51--  https://update.code.visualstudio.com/commit:e7fb5e96c0730b9deb70b33781f98e2f35975036/server-linux-x64/stable
+Loaded CA certificate '/etc/ssl/certs/ca-certificates.crt'
+Resolving update.code.visualstudio.com (update.code.visualstudio.com)... 150.171.109.113, 2603:1061:14:71::1
+Connecting to update.code.visualstudio.com (update.code.visualstudio.com)|150.171.109.113|:443... connected.
+HTTP request sent, awaiting response... 302 Found
+Location: https://vscode.download.prss.microsoft.com/dbazure/download/stable/e7fb5e96c0730b9deb70b33781f98e2f35975036/vscode-server-linux-x64.tar.gz [following]
+--2026-04-06 08:52:51--  https://vscode.download.prss.microsoft.com/dbazure/download/stable/e7fb5e96c0730b9deb70b33781f98e2f35975036/vscode-server-linux-x64.tar.gz
+Resolving vscode.download.prss.microsoft.com (vscode.download.prss.microsoft.com)... 199.232.214.172, 199.232.210.172, 2a04:4e42:4f::684, ...
+Connecting to vscode.download.prss.microsoft.com (vscode.download.prss.microsoft.com)|199.232.214.172|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 90146507 (86M) [application/octet-stream]
+Saving to: ‘/home/serge/.vscode-server/bin/e7fb5e96c0730b9deb70b33781f98e2f35975036-1775479957.tar.gz’
+
