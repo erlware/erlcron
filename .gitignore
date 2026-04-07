@@ -8,3 +8,5 @@ TEST*.xml
 .deps_plt
 .eunit/
 .rebar/
+rebar3.crashdump
+*.dump

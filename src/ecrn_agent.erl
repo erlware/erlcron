@@ -208,7 +208,7 @@ handle_call({set_datetime, DateTime, CurrEpochMsec}, _From, State) ->
             true ->
                 NewState = set_internal_time(State#state{next_run=0}, DateTime, CurrEpochMsec),
                 reply_and_wait(ok, NewState);
-            false ->
+            _ ->
                 {stop, normal, ok, State}
         end
     catch ?EXCEPTION(_, E, ST) ->
@@ -732,7 +732,7 @@ fast_forward(#state{ref_epoch=OldRefEpoch, next_run=NextRun}=S, NewRefEpoch, New
         State2  = State1#state{ref_epoch = RefMsec+1, last_run=NextRun, next_run=RefMsec},
         do_job_run(State2),
         case State2#state.job of
-            {{once, _}, _} when Count =:= 1 ->
+            #job{schedule={once, _}} when Count =:= 1 ->
                 Msec =< 0 andalso
                     ?LOG_WARNING([{info, "One-time job executed immediately due to negative time shift"},
                                 {time_shift_secs, to_seconds(Msec)},
