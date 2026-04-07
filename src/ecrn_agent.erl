@@ -32,6 +32,7 @@ which are used by the test suite.
          set_datetime/4,
          recalculate/1,
          info/1,
+         run/1,
          validate/1,
          until_next_time/2,
          normalize/2]).
@@ -140,6 +141,11 @@ next_run(Pid) ->
 info(Pid) when is_pid(Pid); is_atom(Pid) ->
     gen_server:call(Pid, info).
 
+-doc "Run the job immediately, without affecting the next scheduled run time".
+-spec run(pid()) -> ok.
+run(Pid) when is_pid(Pid); is_atom(Pid) ->
+    gen_server:call(Pid, run).
+
 -doc """
 Validate a `t:erlcron:schedule/0` spec without scheduling it.
 
@@ -152,7 +158,8 @@ validate(Spec) ->
     {DateTime, ActualMsec} = ecrn_control:ref_datetime(universal),
     NewState = set_internal_time(State, DateTime, ActualMsec),
     try
-        NormalSpec = normalize(Spec, DateTime),
+        LocalTime = erlang:universaltime_to_localtime(DateTime),
+        NormalSpec = normalize(Spec, LocalTime),
         {Msec,_}   = until_next_time(NewState#state{job=#job{schedule=NormalSpec}}),
         Msec > 0 orelse throw({specified_time_past_seconds_ago, to_seconds(Msec)}),
         ok
@@ -214,6 +221,11 @@ handle_call({set_datetime, DateTime, CurrEpochMsec}, _From, State) ->
     end;
 handle_call(info, _From, #state{job=Job} = State) ->
     reply_and_wait(Job, State);
+handle_call(run, _From, State) ->
+    Epoch   = ecrn_util:epoch_milliseconds(),
+    NowMsec = current_epoch(Epoch, State),
+    Reply = do_job_run(State, ok),
+    reply_and_wait(Reply, State#state{last_run=NowMsec, next_run=0});
 handle_call(Msg, _From, State) ->
     {stop, State, {not_implemented, Msg}}.
 
@@ -264,7 +276,8 @@ process_timeout(#state{last_time=LastTime, next_run=NextRun, last_run=LastRun}=S
         end,
     reply_and_wait(Reply, State).
 
-do_job_run(#state{job_ref=Ref, next_run=Time, job=#job{schedule=When, lambda=Fun}, opts=Opts} = S) ->
+do_job_run(State) -> do_job_run(State, noreply).
+do_job_run(#state{job_ref=Ref, next_run=Time, job=#job{schedule=When, lambda=Fun}, opts=Opts} = S, Reply) ->
     Res  = do_job_start(Ref, maps:get(on_job_start, Opts, undefined)),
     Res /= ignore andalso execute(Fun, Ref, Time, maps:get(on_job_end, Opts, undefined)),
     case When of
@@ -272,7 +285,7 @@ do_job_run(#state{job_ref=Ref, next_run=Time, job=#job{schedule=When, lambda=Fun
             stop;
         _ ->
             S#state.fast_forward orelse timer:sleep(1),
-            noreply
+            Reply
     end.
 
 do_job_start(_,   undefined)                -> ok;

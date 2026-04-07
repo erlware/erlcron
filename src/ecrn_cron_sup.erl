@@ -53,26 +53,24 @@ Returns `ignored` when the job is excluded by hostname restrictions.
 -spec add_job(erlcron:job_ref(), erlcron:job(), erlcron:cron_opts()) ->
     erlcron:job_ref() | ignored | already_started | {error, term()}.
 add_job(JobRef, Job = #{}, CronOpts) when is_map(CronOpts) ->
-    {JobSpec, JobOpts} = parse_job(Job),
+    {{_When, _Task} = JobSpec, JobOpts} = parse_job(Job),
     add_job2(JobRef, JobSpec, check_opts(JobRef, maps:merge(CronOpts, JobOpts)));
 add_job(JobRef, Job = {_, _Task}, CronOpts) when is_map(CronOpts) ->
     add_job2(JobRef, Job, check_opts(JobRef, CronOpts));
 add_job(JobRef, {When, Task, JobOpts}, CronOpts) when is_map(JobOpts) ->
     add_job2(JobRef, {When, Task}, check_opts(JobRef, maps:merge(CronOpts, JobOpts))).
 
-add_job2(JobRef, {Sched, Task}, Opts) ->
-    case check_host(Opts) of
-        true ->
-            Fun = check_task(JobRef, Task),
-            %% Simple one-for-one supervisor: calls
-            %% ecrn_agent:start_link(JobRef, {Sched, Task}, Fun, Opts)
-            case supervisor:start_child(?SERVER, [JobRef, {Sched, Task}, Fun, Opts]) of
-                {ok, _}                       -> JobRef;
-                {error, {already_started, _}} -> already_started;
-                Other                         -> Other
-            end;
-        false ->
-            ignored
+add_job2(JobRef, {Schedule, Task}, Opts) ->
+    maybe
+        true        ?= check_host(Opts),
+        Fun          = check_task(JobRef, Task),
+        {ok, Sched} ?= ecrn_util:parse_schedule(Schedule),
+        {ok, _}     ?= supervisor:start_child(?SERVER, [JobRef, {Sched, Task}, Fun, Opts]),
+        JobRef
+    else
+        false                         -> ignored;
+        {error, {already_started, _}} -> already_started;
+        {error, _} = Err              -> Err
     end.
 
 get_opt(Opt, Map) when is_atom(Opt) ->

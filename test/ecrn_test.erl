@@ -349,6 +349,307 @@ check_task_rejects_mfa_with_args() ->
                  ecrn_cron_sup:check_task(r, {io, format, ["~p~n", []]})).
 
 %%%===================================================================
+%%% from_cron/1 unit tests (no application required)
+%%%===================================================================
+
+from_cron_test_() ->
+    [?FuncTest(from_cron_every_minute),
+     ?FuncTest(from_cron_every_n_minutes),
+     ?FuncTest(from_cron_every_hour),
+     ?FuncTest(from_cron_every_n_hours),
+     ?FuncTest(from_cron_specific_time),
+     ?FuncTest(from_cron_multiple_minutes),
+     ?FuncTest(from_cron_weekly_single_day),
+     ?FuncTest(from_cron_weekly_multiple_days),
+     ?FuncTest(from_cron_weekly_named_day),
+     ?FuncTest(from_cron_weekly_named_days),
+     ?FuncTest(from_cron_monthly_single_dom),
+     ?FuncTest(from_cron_monthly_multiple_doms),
+     ?FuncTest(from_cron_month_field_ignored),
+     ?FuncTest(from_cron_minute_range),
+     ?FuncTest(from_cron_dom_range),
+     ?FuncTest(from_cron_binary_input),
+     ?FuncTest(from_cron_error_five_fields),
+     ?FuncTest(from_cron_error_dom_and_dow),
+     ?FuncTest(from_cron_error_out_of_range_minute),
+     ?FuncTest(from_cron_error_bad_dow)].
+
+%% * * * * *  →  {daily, {every, {1, min}}}
+from_cron_every_minute() ->
+    ?assertEqual({ok, {daily, {every, {1, min}}}},
+                 ecrn_util:from_cron("* * * * *")).
+
+%% */5 * * * *  →  {daily, {every, {5, min}}}
+from_cron_every_n_minutes() ->
+    ?assertEqual({ok, {daily, {every, {5, min}}}},
+                 ecrn_util:from_cron("*/5 * * * *")).
+
+%% 0 * * * *  →  {daily, {every, {1, hr}}}
+from_cron_every_hour() ->
+    ?assertEqual({ok, {daily, {every, {1, hr}}}},
+                 ecrn_util:from_cron("0 * * * *")).
+
+%% 0 */2 * * *  →  {daily, {every, {2, hr}}}
+from_cron_every_n_hours() ->
+    ?assertEqual({ok, {daily, {every, {2, hr}}}},
+                 ecrn_util:from_cron("0 */2 * * *")).
+
+%% 30 9 * * *  →  {daily, {9, 30, 0}}
+from_cron_specific_time() ->
+    ?assertEqual({ok, {daily, {9, 30, 0}}},
+                 ecrn_util:from_cron("30 9 * * *")).
+
+%% 0,30 9 * * *  →  {daily, [{9,0,0}, {9,30,0}]}
+from_cron_multiple_minutes() ->
+    ?assertEqual({ok, {daily, [{9, 0, 0}, {9, 30, 0}]}},
+                 ecrn_util:from_cron("0,30 9 * * *")).
+
+%% 0 9 * * 1  →  {weekly, mon, {9, 0, 0}}
+from_cron_weekly_single_day() ->
+    ?assertEqual({ok, {weekly, mon, {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 * * 1")).
+
+%% 0 9 * * 1,3  →  {weekly, [mon, wed], {9, 0, 0}}
+from_cron_weekly_multiple_days() ->
+    ?assertEqual({ok, {weekly, [mon, wed], {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 * * 1,3")).
+
+%% 0 9 * * mon  →  {weekly, mon, {9, 0, 0}}
+from_cron_weekly_named_day() ->
+    ?assertEqual({ok, {weekly, mon, {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 * * mon")).
+
+%% 0 9 * * mon,wed,fri  →  {weekly, [mon,wed,fri], {9, 0, 0}}
+from_cron_weekly_named_days() ->
+    ?assertEqual({ok, {weekly, [mon, wed, fri], {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 * * mon,wed,fri")).
+
+%% 0 9 1 * *  →  {monthly, 1, {9, 0, 0}}
+from_cron_monthly_single_dom() ->
+    ?assertEqual({ok, {monthly, 1, {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 1 * *")).
+
+%% 0 9 1,15 * *  →  {monthly, [1, 15], {9, 0, 0}}
+from_cron_monthly_multiple_doms() ->
+    ?assertEqual({ok, {monthly, [1, 15], {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 1,15 * *")).
+
+%% 0 9 1 6 *  →  month field is ignored; same as "0 9 1 * *"
+from_cron_month_field_ignored() ->
+    ?assertEqual({ok, {monthly, 1, {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 1 6 *")).
+
+%% Minute range: 0-5 expands to [0,1,2,3,4,5] crossed with hour 9 → list
+from_cron_minute_range() ->
+    {ok, {daily, Times}} = ecrn_util:from_cron("0-5 9 * * *"),
+    ?assertEqual([{9,0,0},{9,1,0},{9,2,0},{9,3,0},{9,4,0},{9,5,0}], Times).
+
+%% DOM range: 1-3 expands to [1,2,3]
+from_cron_dom_range() ->
+    ?assertEqual({ok, {monthly, [1, 2, 3], {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 1-3 * *")).
+
+%% Binary input works the same as string input
+from_cron_binary_input() ->
+    ?assertEqual({ok, {daily, {9, 30, 0}}},
+                 ecrn_util:from_cron(<<"30 9 * * *">>)).
+
+%% Too few / too many fields returns an error
+from_cron_error_five_fields() ->
+    ?assertMatch({error, _}, ecrn_util:from_cron("* * * *")),
+    ?assertMatch({error, _}, ecrn_util:from_cron("* * * * * *")).
+
+%% Both DOM and DOW specified is unsupported
+from_cron_error_dom_and_dow() ->
+    ?assertMatch({error, _}, ecrn_util:from_cron("0 9 1 * 1")).
+
+%% Minute value out of range (0–59)
+from_cron_error_out_of_range_minute() ->
+    ?assertMatch({error, _}, ecrn_util:from_cron("60 9 * * *")).
+
+%% Unrecognised day-of-week token
+from_cron_error_bad_dow() ->
+    ?assertMatch({error, _}, ecrn_util:from_cron("0 9 * * funday")).
+
+%%%===================================================================
+%%% parse_schedule/1 unit tests (no application required)
+%%%===================================================================
+
+parse_schedule_test_() ->
+    {setup,
+     fun() ->
+        application:load(erlcron),
+        application:set_env(erlcron, sup_intensity, 0),
+        application:set_env(erlcron, sup_period,    1),
+        application:unset_env(erlcron, crontab),
+        disable_sasl_logger(),
+        application:start(erlcron)
+     end,
+     fun(_) ->
+        application:stop(erlcron),
+        enable_sasl_logger()
+     end,
+     [{timeout, 10, [
+        ?FuncTest(parse_schedule_valid_tuple_daily),
+        ?FuncTest(parse_schedule_valid_tuple_weekly),
+        ?FuncTest(parse_schedule_valid_tuple_monthly),
+        ?FuncTest(parse_schedule_valid_tuple_once),
+        ?FuncTest(parse_schedule_valid_tuple_every),
+        ?FuncTest(parse_schedule_invalid_tuple),
+        ?FuncTest(parse_schedule_string_cron),
+        ?FuncTest(parse_schedule_binary_cron),
+        ?FuncTest(parse_schedule_string_error)
+       ]}
+     ]}.
+
+%% Valid daily tuple is returned unchanged
+parse_schedule_valid_tuple_daily() ->
+    ?assertEqual({ok, {daily, {9, 30, 0}}},
+                 ecrn_util:parse_schedule({daily, {9, 30, 0}})).
+
+%% Valid weekly tuple is returned unchanged
+parse_schedule_valid_tuple_weekly() ->
+    ?assertEqual({ok, {weekly, mon, {9, 0, 0}}},
+                 ecrn_util:parse_schedule({weekly, mon, {9, 0, 0}})).
+
+%% Valid monthly tuple is returned unchanged
+parse_schedule_valid_tuple_monthly() ->
+    ?assertEqual({ok, {monthly, 1, {9, 0, 0}}},
+                 ecrn_util:parse_schedule({monthly, 1, {9, 0, 0}})).
+
+%% Valid once tuple is returned unchanged; set_datetime ensures {11,0,0} is in the future
+parse_schedule_valid_tuple_once() ->
+    erlcron:set_datetime({{2000,1,1},{8,0,0}}),
+    ?assertEqual({ok, {once, {11, 0, 0}}},
+                 ecrn_util:parse_schedule({once, {11, 0, 0}})).
+
+%% Valid every tuple is returned unchanged
+parse_schedule_valid_tuple_every() ->
+    ?assertEqual({ok, {daily, {every, {5, min}}}},
+                 ecrn_util:parse_schedule({daily, {every, {5, min}}})).
+
+%% Invalid tuple yields {error, {invalid_schedule, _}}
+parse_schedule_invalid_tuple() ->
+    ?assertMatch({error, {invalid_schedule, _}},
+                 ecrn_util:parse_schedule({monthly, 65, {55, am}})).
+
+%% String cron expression is delegated to from_cron/1
+parse_schedule_string_cron() ->
+    ?assertEqual({ok, {daily, {every, {5, min}}}},
+                 ecrn_util:parse_schedule("*/5 * * * *")).
+
+%% Binary cron expression is delegated to from_cron/1
+parse_schedule_binary_cron() ->
+    ?assertEqual({ok, {weekly, fri, {18, 0, 0}}},
+                 ecrn_util:parse_schedule(<<"0 18 * * 5">>)).
+
+%% Invalid cron string returns {error, _}
+parse_schedule_string_error() ->
+    ?assertMatch({error, _},
+                 ecrn_util:parse_schedule("not a cron expression")).
+
+%%%===================================================================
+%%% ecrn_agent:run/1 unit tests
+%%%===================================================================
+
+run_test_() ->
+    {setup,
+     fun() ->
+        application:load(erlcron),
+        application:set_env(erlcron, sup_intensity, 0),
+        application:set_env(erlcron, sup_period,    1),
+        application:unset_env(erlcron, crontab),
+        disable_sasl_logger(),
+        application:start(erlcron)
+     end,
+     fun(_) ->
+        application:stop(erlcron),
+        enable_sasl_logger()
+     end,
+     [{timeout, 10, [
+        ?FuncTest(run_executes_fun0),
+        ?FuncTest(run_executes_fun2),
+        ?FuncTest(run_does_not_cancel_daily_job),
+        ?FuncTest(run_stops_once_job),
+        ?FuncTest(run_fires_on_job_end_callback),
+        ?FuncTest(run_skipped_when_on_job_start_returns_ignore),
+        ?FuncTest(run_returns_ok)
+      ]}
+     ]}.
+
+%% run/1 executes a fun/0 immediately
+run_executes_fun0() ->
+    erlcron:set_datetime({{2000,1,1},{8,0,0}}),
+    Self = self(),
+    Ref  = erlcron:daily(run_fun0, {9, 0, 0}, fun() -> Self ! ran end),
+    Pid  = ecrn_reg:get(Ref),
+    ecrn_agent:run(Pid),
+    ?assertMatch(1, collect(ran, 500, 1)),
+    erlcron:cancel(Ref).
+
+%% run/1 executes a fun/2, passing (JobRef, Time)
+run_executes_fun2() ->
+    erlcron:set_datetime({{2000,1,1},{8,0,0}}),
+    Self = self(),
+    Ref  = erlcron:daily(run_fun2, {9, 0, 0}, fun(R, _DT) -> Self ! {ran2, R} end),
+    Pid  = ecrn_reg:get(Ref),
+    ecrn_agent:run(Pid),
+    ?assertMatch(1, collect({ran2, run_fun2}, 500, 1)),
+    erlcron:cancel(Ref).
+
+%% run/1 on a daily job does not cancel it; the job remains registered
+run_does_not_cancel_daily_job() ->
+    erlcron:set_datetime({{2000,1,1},{8,0,0}}),
+    Ref = erlcron:daily(run_persist, {9, 0, 0}, fun() -> ok end),
+    Pid = ecrn_reg:get(Ref),
+    ecrn_agent:run(Pid),
+    timer:sleep(50),
+    ?assertNotEqual(undefined, ecrn_reg:get(Ref)),
+    erlcron:cancel(Ref).
+
+%% run/1 on a once job causes it to stop (process exits normally);
+%% gen_server:call exits with {normal,...} when the server stops without replying
+run_stops_once_job() ->
+    erlcron:set_datetime({{2000,1,1},{8,0,0}}),
+    Ref = erlcron:at(run_once, {9, 0, 0}, fun() -> ok end),
+    Pid = ecrn_reg:get(Ref),
+    ?assertExit({normal, _}, ecrn_agent:run(Pid)),
+    timer:sleep(50),
+    ?assertEqual(undefined, ecrn_reg:get(Ref)).
+
+%% run/1 fires the on_job_end callback with {ok, Result}
+run_fires_on_job_end_callback() ->
+    erlcron:set_datetime({{2000,1,1},{8,0,0}}),
+    Self = self(),
+    Opts = #{on_job_end => fun(_Ref, Res) -> Self ! {ended, Res} end},
+    Ref  = erlcron:daily(run_cb, {9, 0, 0},
+                         fun() -> done end, Opts),
+    Pid  = ecrn_reg:get(Ref),
+    ecrn_agent:run(Pid),
+    ?assertMatch({ended, {ok, done}}, receive M -> M after 500 -> timeout end),
+    erlcron:cancel(Ref).
+
+%% run/1 skips execution when on_job_start returns ignore
+run_skipped_when_on_job_start_returns_ignore() ->
+    erlcron:set_datetime({{2000,1,1},{8,0,0}}),
+    Self = self(),
+    Opts = #{on_job_start => fun(_Ref) -> ignore end,
+             on_job_end   => fun(_Ref, _Res) -> Self ! ran_anyway end},
+    Ref  = erlcron:daily(run_ignored, {9, 0, 0}, fun() -> Self ! ran_anyway end, Opts),
+    Pid  = ecrn_reg:get(Ref),
+    ecrn_agent:run(Pid),
+    ?assertMatch(0, collect(ran_anyway, 200, 1)),
+    erlcron:cancel(Ref).
+
+%% run/1 returns ok
+run_returns_ok() ->
+    erlcron:set_datetime({{2000,1,1},{8,0,0}}),
+    Ref = erlcron:daily(run_ret, {9, 0, 0}, fun() -> ok end),
+    Pid = ecrn_reg:get(Ref),
+    ?assertEqual(ok, ecrn_agent:run(Pid)),
+    erlcron:cancel(Ref).
+
+%%%===================================================================
 %%% Internal Functions
 %%%===================================================================
 seconds_now() ->

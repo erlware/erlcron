@@ -31,6 +31,11 @@ time-based behaviour in automated test suites.
   the month. Positive integers count from the start of the month; `0`
   and negative integers count backwards from the last day (`0` = last
   day, `-1` = second-to-last, and so on).
+- **`CronExpr`** — A standard 5-field Unix cron expression as a string
+  or binary (e.g. `"30 9 * * 1"`, `<<"*/5 * * * *">>`). The expression
+  is parsed via `ecrn_util:from_cron/1` into an equivalent erlcron
+  tuple schedule at job-submission time. See `ecrn_util:from_cron/1`
+  for supported syntax and the mapping to erlcron schedule forms.
 
 ## When
 
@@ -71,6 +76,9 @@ application:ensure_all_started(erlcron),
 %% Run a fun once at 3:30 PM
 erlcron:cron({{once, {3, 30, pm}}, fun() -> io:fwrite("Hello!~n") end}),
 
+%% Run a fun every 5 minutes using a Unix cron expression
+erlcron:cron({"*/5 * * * *", fun() -> poll() end}),
+
 %% Run a fun every day at 9 AM, identified by a named reference
 erlcron:daily(my_daily_job, {9, am}, fun() -> do_work() end),
 
@@ -104,6 +112,7 @@ erlcron:cancel(my_daily_job).
               job_start/0,
               job_end/0,
               schedule/0,
+              cron_expr/0,
               callable/0,
               dow/0,
               dom/0,
@@ -125,27 +134,36 @@ erlcron:cancel(my_daily_job).
 -type cron_time()   :: {integer(), am | pm}
                      | {integer(), integer(), am | pm}
                      | calendar:time().
--type constraint() :: {between, cron_time(), cron_time()}.
--type duration()   :: {integer(), hr | h | min | m | sec | s}.
--type period()     :: cron_time() | {every, duration()}
-                                  | {every, duration(), constraint()}.
--type dom()        :: integer().
--type dow_day()    :: mon | tue | wed | thu | fri | sat | sun.
--type dow()        :: dow_day() | [dow_day()].
--type callable()   :: fun(() -> term()) |
-                      fun((JobRef::job_ref(), calendar:datetime()) -> term()).
--type task()       :: {M :: module(), F :: atom()} |
-                      {M :: module(), F :: atom(), []} |
-                      callable().
--type schedule()   :: {once, cron_time()}
-                    | {once, seconds()}
-                    | {daily, period()}
-                    | {weekly, dow(), period()}
-                    | {monthly, dom()|[dom()], period()}.
+-type constraint()  :: {between, cron_time(), cron_time()}.
+-type duration()    :: {integer(), hr | h | min | m | sec | s}.
+-type period()      :: cron_time() | {every, duration()}
+                                   | {every, duration(), constraint()}.
+-type dom()         :: integer().
+-type dow_day()     :: mon | tue | wed | thu | fri | sat | sun.
+-type dow()         :: dow_day() | [dow_day()].
+-type callable()    :: fun(() -> term()) |
+                       fun((JobRef::job_ref(), calendar:datetime()) -> term()).
+-type task()        :: {M :: module(), F :: atom()} |
+                       {M :: module(), F :: atom(), []} |
+                       callable().
+-doc """
+A 5-field Unix cron expression string or binary.
 
--type  job()      :: {schedule(), task()}
-                   | {schedule(), task(), job_opts()}
-                   | #{id => job_ref(), schedule => schedule(), task => task(), _ => any()}.
+Examples: `\"*/5 * * * *\"`, `\"30 9 * * 1\"`, `~\"0 18 * * fri\"`.  
+Parsed at job-submission time by `ecrn_util:from_cron/1`.
+""".
+-type cron_expr()   :: string() | binary().
+
+-type schedule()    :: {once, cron_time()}
+                     | {once, seconds()}
+                     | {daily, period()}
+                     | {weekly, dow(), period()}
+                     | {monthly, dom()|[dom()], period()}
+                     | cron_expr().
+
+-type job()         :: {schedule(), task()}
+                     | {schedule(), task(), job_opts()}
+                     | #{id => job_ref(), schedule => schedule(), task => task(), _ => any()}.
 
 %% should be opaque but dialyzer does not allow it
 -doc """
