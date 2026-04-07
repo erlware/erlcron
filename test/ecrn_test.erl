@@ -549,6 +549,82 @@ parse_schedule_string_error() ->
                  ecrn_util:parse_schedule("not a cron expression")).
 
 %%%===================================================================
+%%% erlcron:cron/2,3,4 Sched+Task variants
+%%%===================================================================
+
+cron_sched_task_test_() ->
+    {setup,
+     fun() ->
+        application:load(erlcron),
+        application:set_env(erlcron, sup_intensity, 0),
+        application:set_env(erlcron, sup_period,    1),
+        application:unset_env(erlcron, crontab),
+        disable_sasl_logger(),
+        application:start(erlcron)
+     end,
+     fun(_) ->
+        application:stop(erlcron),
+        enable_sasl_logger()
+     end,
+     [{timeout, 10, [
+        ?FuncTest(cron2_sched_task),
+        ?FuncTest(cron3_sched_task_opts),
+        ?FuncTest(cron4_id_sched_task_opts),
+        ?FuncTest(cron4_cron_expr_string),
+        ?FuncTest(cron4_cron_expr_binary)
+      ]}
+     ]}.
+
+%% cron(Sched, Task) — auto-generated ref, no opts
+cron2_sched_task() ->
+    erlcron:set_datetime({{2000,1,1},{8,59,59}}),
+    Self = self(),
+    Ref  = erlcron:cron({daily, {9, 0, 0}}, fun() -> Self ! cron2 end),
+    ?assert(is_reference(Ref)),
+    ?assertMatch(1, collect(cron2, 1500, 1)),
+    erlcron:cancel(Ref).
+
+%% cron(Sched, Task, Opts) — auto-generated ref, with opts
+cron3_sched_task_opts() ->
+    erlcron:set_datetime({{2000,1,1},{8,59,59}}),
+    Self = self(),
+    Opts = #{on_job_end => fun(_R, {ok, done}) -> Self ! cron3_done end},
+    Ref  = erlcron:cron({daily, {9, 0, 0}}, fun() -> done end, Opts),
+    ?assert(is_reference(Ref)),
+    ?assertMatch({cron3_done}, {receive M -> M after 1500 -> timeout end}),
+    erlcron:cancel(Ref).
+
+%% cron(JobRef, Sched, Task, Opts) — explicit named ref
+cron4_id_sched_task_opts() ->
+    erlcron:set_datetime({{2000,1,1},{8,59,59}}),
+    Self = self(),
+    Ref  = erlcron:cron(cron4_job, {daily, {9, 0, 0}},
+                        fun() -> Self ! cron4 end, #{}),
+    ?assertEqual(cron4_job, Ref),
+    ?assertMatch(1, collect(cron4, 1500, 1)),
+    erlcron:cancel(cron4_job).
+
+%% cron(JobRef, CronString, Task, Opts) — cron expression string
+cron4_cron_expr_string() ->
+    erlcron:set_datetime({{2000,1,1},{8,59,59}}),
+    Self = self(),
+    Ref  = erlcron:cron(cron4_str, "0 9 * * *",
+                        fun() -> Self ! cron4_str end, #{}),
+    ?assertEqual(cron4_str, Ref),
+    ?assertMatch(1, collect(cron4_str, 1500, 1)),
+    erlcron:cancel(cron4_str).
+
+%% cron(JobRef, CronBinary, Task, Opts) — cron expression binary
+cron4_cron_expr_binary() ->
+    erlcron:set_datetime({{2000,1,1},{8,59,59}}),
+    Self = self(),
+    Ref  = erlcron:cron(cron4_bin, <<"0 9 * * *">>,
+                        fun() -> Self ! cron4_bin end, #{}),
+    ?assertEqual(cron4_bin, Ref),
+    ?assertMatch(1, collect(cron4_bin, 1500, 1)),
+    erlcron:cancel(cron4_bin).
+
+%%%===================================================================
 %%% ecrn_agent:run/1 unit tests
 %%%===================================================================
 

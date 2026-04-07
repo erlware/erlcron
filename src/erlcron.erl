@@ -88,7 +88,7 @@ erlcron:cancel(my_daily_job).
 """.
 
 -export([validate/1,
-         cron/1,   cron/2,    cron/3,
+         cron/1,   cron/2,    cron/3,    cron/4,
          at/2,     at/3,      at/4,
          daily/2,  daily/3,   daily/4,
          weekly/3, weekly/4,  weekly/5,
@@ -234,13 +234,17 @@ that can be used to cancel the job later.
 cron(Job) ->
     cron(make_ref(Job), Job, #{}).
 
--spec cron(job()|job_ref(), job()|cron_opts()) ->
+-spec cron(job()|job_ref(), job()|cron_opts()|task()) ->
         job_ref() | ignored | already_started | {error, term()}.
 cron(Job, DefOpts) when is_map(DefOpts) ->
     cron(make_ref(Job), Job, DefOpts);
 
 cron(JobRef, Job) when (is_atom(JobRef) orelse is_reference(JobRef) orelse is_binary(JobRef)) ->
-    cron(JobRef, Job, #{}).
+    cron(JobRef, Job, #{});
+
+%% cron(Sched, Task) — schedule without an explicit job reference
+cron(Sched, Task) ->
+    cron(make_ref(), {Sched, Task}, #{}).
 
 -doc """
 Schedule a job identified by `JobRef`.
@@ -248,12 +252,33 @@ Schedule a job identified by `JobRef`.
 The reference can be a `reference()`, atom, or binary. When it is an
 atom the job process is locally registered under that name.
 Returns `ignored` when the job is not permitted to run on the current host.
+
+When called as `cron(Sched, Task, Opts)` a fresh reference is generated
+automatically and `Opts` is a `t:job_opts/0` map.
 """.
 -spec cron(job_ref(), job(), job_opts()) ->
         job_ref() | ignored | already_started | {error, term()}.
 cron(JobRef, Job, Opts) when (is_atom(JobRef) orelse is_reference(JobRef) orelse is_binary(JobRef))
                            , is_map(Opts) ->
-    ecrn_cron_sup:add_job(JobRef, Job, Opts).
+    ecrn_cron_sup:add_job(JobRef, Job, Opts);
+
+%% cron(Sched, Task, Opts) — schedule without an explicit job reference
+cron(Sched, Task, Opts) when is_map(Opts) ->
+    cron(make_ref(), {Sched, Task}, Opts).
+
+-doc """
+Schedule a job with an explicit reference, schedule, task, and options.
+
+```erlang
+erlcron:cron(my_job, {daily, {9, am}}, fun() -> ok end, #{}).
+erlcron:cron(my_job, \"30 9 * * 1-5\", fun() -> standup() end, #{}).
+```
+""".
+-spec cron(job_ref(), schedule(), task(), job_opts()) ->
+        job_ref() | ignored | already_started | {error, term()}.
+cron(JobRef, Sched, Task, Opts) when (is_atom(JobRef) orelse is_reference(JobRef) orelse is_binary(JobRef))
+                                   , is_map(Opts) ->
+    ecrn_cron_sup:add_job(JobRef, {Sched, Task}, Opts).
 
 -doc """
 Schedule a job to run once at `When`.

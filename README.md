@@ -9,8 +9,8 @@ Erlcron is a cron-like job scheduler for Erlang applications. It is designed to
 be testable: the system clock can be arbitrarily set and fast-forwarded, making
 it easy to verify time-based behaviour in automated tests.
 
-- **Erlang-native syntax** — job schedules are expressed as Erlang terms, not
-  crontab strings.
+- **Erlang-native syntax** — job schedules are expressed as Erlang terms, or
+  as standard Unix cron expression strings.
 - **Millisecond resolution** — unlike Unix cron's one-minute polling interval,
   each job sleeps for the exact duration until its next execution.
 - **Per-job processes** — every scheduled job runs in its own lightweight
@@ -30,6 +30,7 @@ it easy to verify time-based behaviour in automated tests.
 1. [Installation](#installation)
 2. [Quick Start](#quick-start)
 3. [Schedule Syntax](#schedule-syntax)
+   - [Unix cron expressions](#unix-cron-expressions)
    - [once](#once)
    - [Period](#period)
    - [daily](#daily)
@@ -84,6 +85,9 @@ erlcron:daily({3, 30, pm}, fun() -> io:fwrite("Daily reminder~n") end).
 %% Run a function once after 5 minutes (300 seconds)
 erlcron:at(300, fun() -> io:fwrite("Five minutes later~n") end).
 
+%% Use a standard Unix cron expression (every 5 minutes)
+erlcron:cron({"*/5 * * * *", fun() -> io:fwrite("Every 5 min~n") end}).
+
 %% Cancel a job
 JobRef = erlcron:cron({{daily, {noon}}, fun() -> ok end}),
 erlcron:cancel(JobRef).
@@ -93,7 +97,66 @@ erlcron:cancel(JobRef).
 
 ## Schedule Syntax
 
-All schedules are expressed as `{Type, ...}` tuples.
+Schedules can be expressed as `{Type, ...}` tuples **or** as standard
+5-field Unix cron expression strings/binaries.
+
+### Unix cron expressions
+
+Any string or binary in the standard 5-field cron format is accepted wherever
+a schedule is expected:
+
+```
+┌───────── minute      (0–59)
+│ ┌─────── hour        (0–23)
+│ │ ┌───── day-of-month (1–31)
+│ │ │ ┌─── month       (1–12, accepted but ignored)
+│ │ │ │ ┌─ day-of-week  (0–7, 0/7=Sun; or mon/tue/wed/thu/fri/sat/sun)
+│ │ │ │ │
+* * * * *
+```
+
+Supported field syntax:
+
+| Syntax | Meaning |
+|--------|---------|
+| `*` | every value |
+| `N` | specific value |
+| `*/N` | every N steps |
+| `N-M` | inclusive range |
+| `a,b,c` | list of values |
+
+Examples and their equivalent erlcron specs:
+
+| Cron expression | Equivalent erlcron schedule |
+|-----------------|-----------------------------|
+| `"* * * * *"` | `{daily, {every, {1, min}}}` |
+| `"*/5 * * * *"` | `{daily, {every, {5, min}}}` |
+| `"0 * * * *"` | `{daily, {every, {1, hr}}}` |
+| `"0 */2 * * *"` | `{daily, {every, {2, hr}}}` |
+| `"30 9 * * *"` | `{daily, {9, 30, 0}}` |
+| `"0,30 9 * * *"` | `{daily, [{9,0,0}, {9,30,0}]}` |
+| `"0 9 * * 1"` | `{weekly, mon, {9, 0, 0}}` |
+| `"0 9 * * 1,3"` | `{weekly, [mon,wed], {9, 0, 0}}` |
+| `"0 9 1 * *"` | `{monthly, 1, {9, 0, 0}}` |
+| `"0 9 1,15 * *"` | `{monthly, [1,15], {9, 0, 0}}` |
+
+The expression is parsed at job-submission time by `ecrn_util:from_cron/1`.
+Both `string()` and `binary()` inputs are accepted.
+Expressions that specify both day-of-month and day-of-week simultaneously
+are rejected.
+
+```erlang
+%% Every 5 minutes
+erlcron:cron({"*/5 * * * *", fun() -> poll() end}).
+
+%% Every weekday at 09:30
+erlcron:cron({my_job, {"30 9 * * 1-5", fun() -> standup() end}}).
+
+%% Binary form works too
+erlcron:cron({<<"0 18 * * fri">>, fun() -> wrap_up() end}).
+```
+
+---
 
 ### Time Literals (Duration)
 
@@ -239,6 +302,16 @@ erlcron:cron(Job) -> JobRef | ignored | already_started | {error, Reason}
 erlcron:cron(JobRef, Job) -> ...
 erlcron:cron(JobRef, Job, Opts) -> ...
 
+%% Schedule by passing Sched and Task as separate arguments
+erlcron:cron(Sched, Task) -> JobRef | ...          % auto-generated ref, no opts
+erlcron:cron(Sched, Task, Opts) -> JobRef | ...    % auto-generated ref, with opts
+erlcron:cron(JobRef, Sched, Task, Opts) -> ...     % explicit ref, with opts
+
+%% Sched can be an erlcron tuple or a Unix cron expression string/binary:
+%%   erlcron:cron({daily, {9, am}}, fun() -> ok end)
+%%   erlcron:cron("30 9 * * 1-5", fun() -> standup() end)
+%%   erlcron:cron(my_job, <<"0 18 * * fri">>, fun() -> wrap_up() end, #{})
+
 %% Convenience: run once
 erlcron:at(When, Fun) -> JobRef | ...
 erlcron:at(JobRef, When, Fun) -> ...
@@ -347,6 +420,11 @@ supported here.
             #{id       => test_job,
               schedule => {daily, {1, 0, pm}},
               task     => {io, fwrite, ["Hello, world!~n"]}},
+
+            %% Map-based spec using a Unix cron expression as the schedule
+            #{id       => cron_job,
+              schedule => "30 9 * * 1-5",
+              task     => {io, fwrite, ["Good morning!~n"]}},
 
             %% Map-based spec with additional options
             #{id        => another_job,
