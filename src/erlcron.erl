@@ -144,7 +144,7 @@ erlcron:cancel(my_daily_job).
 -type callable()    :: fun(() -> term()) |
                        fun((JobRef::job_ref(), calendar:datetime()) -> term()).
 -type task()        :: {M :: module(), F :: atom()} |
-                       {M :: module(), F :: atom(), []} |
+                       {M :: module(), F :: atom(), Args :: list()} |
                        callable().
 -doc """
 A 5-field Unix cron expression string or binary.

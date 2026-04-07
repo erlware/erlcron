@@ -50,6 +50,9 @@ ct: compile clean-common-test-data
 
 test: compile eunit
 
+cover:
+	rebar3 cover --verbose
+
 $(DEPS_PLT):
 	@echo Building local plt at $(DEPS_PLT)
 	@echo

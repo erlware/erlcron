@@ -152,13 +152,13 @@ Validate a `t:erlcron:schedule/0` spec without scheduling it.
 Returns `ok` when the spec is syntactically and semantically valid,
 or `{error, Reason}` otherwise.
 """.
--spec validate(erlcron:schedule()) -> ok | {error, term()}.
-validate(Spec) ->
+-spec validate(erlcron:schedule()|binary()|string()) -> ok | {error, term()}.
+validate(Spec) when is_tuple(Spec) ->
     State = #state{job=undefined, job_ref=undefined},
     {DateTime, ActualMsec} = ecrn_control:ref_datetime(universal),
     NewState = set_internal_time(State, DateTime, ActualMsec),
     try
-        LocalTime = erlang:universaltime_to_localtime(DateTime),
+        LocalTime  = erlang:universaltime_to_localtime(DateTime),
         NormalSpec = normalize(Spec, LocalTime),
         {Msec,_}   = until_next_time(NewState#state{job=#job{schedule=NormalSpec}}),
         Msec > 0 orelse throw({specified_time_past_seconds_ago, to_seconds(Msec)}),
@@ -166,6 +166,11 @@ validate(Spec) ->
     catch
         _Error:Reason ->
             {error, Reason}
+    end;
+validate(CronSpec) when is_binary(CronSpec); is_list(CronSpec) ->
+    case ecrn_util:parse_schedule(CronSpec) of
+        {ok, Spec} -> validate(Spec);
+        Err        -> Err
     end.
 
 %%%===================================================================

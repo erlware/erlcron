@@ -321,7 +321,8 @@ check_task_test_() ->
      ?FuncTest(check_task_mfa_empty_returns_fun),
      ?FuncTest(check_task_fun0_passthrough),
      ?FuncTest(check_task_fun2_passthrough),
-     ?FuncTest(check_task_rejects_mfa_with_args)].
+     ?FuncTest(check_task_mfa_with_args_returns_fun),
+     ?FuncTest(check_task_rejects_invalid_task)].
 
 %% {M, F} - checks arities [0, 2], returns the matching fun.
 check_task_mfa_returns_fun() ->
@@ -343,10 +344,15 @@ check_task_fun2_passthrough() ->
     Fun = fun(_, _) -> ok end,
     ?assertEqual(Fun, ecrn_cron_sup:check_task(r, Fun)).
 
-%% {M, F, [arg, ...]} with non-empty args is no longer supported.
-check_task_rejects_mfa_with_args() ->
+%% {M, F, [arg, ...]} with non-empty args is wrapped in apply/3, returns a fun/0.
+check_task_mfa_with_args_returns_fun() ->
+    F = ecrn_cron_sup:check_task(r, {io, format, ["~p~n", []]}),
+    ?assert(is_function(F, 0)).
+
+%% Completely invalid task (not mfa, not fun) is rejected.
+check_task_rejects_invalid_task() ->
     ?assertError({invalid_job_task, r, _},
-                 ecrn_cron_sup:check_task(r, {io, format, ["~p~n", []]})).
+                 ecrn_cron_sup:check_task(r, not_a_valid_task)).
 
 %%%===================================================================
 %%% from_cron/1 unit tests (no application required)
@@ -623,6 +629,62 @@ cron4_cron_expr_binary() ->
     ?assertEqual(cron4_bin, Ref),
     ?assertMatch(1, collect(cron4_bin, 1500, 1)),
     erlcron:cancel(cron4_bin).
+
+%%%===================================================================
+%%% MFA task with arguments (e.g. io:format("Hello ~s\n", ["World"]))
+%%%===================================================================
+
+cron_mfa_args_test_() ->
+    {setup,
+     fun() ->
+        application:load(erlcron),
+        application:set_env(erlcron, sup_intensity, 0),
+        application:set_env(erlcron, sup_period,    1),
+        application:unset_env(erlcron, crontab),
+        disable_sasl_logger(),
+        application:start(erlcron)
+     end,
+     fun(_) ->
+        application:stop(erlcron),
+        enable_sasl_logger()
+     end,
+     [{timeout, 10, [
+        ?FuncTest(mfa_args_daily_job_runs),
+        ?FuncTest(mfa_args_once_job_runs),
+        ?FuncTest(mfa_args_cron_expr_job_runs),
+        ?FuncTest(mfa_args_wrong_arity_rejected)
+      ]}
+     ]}.
+
+%% A daily job whose task is an MFA with arguments runs and delivers its result.
+%% Uses {erlang, send, [Self, Msg]} which is equivalent to Self ! Msg.
+mfa_args_daily_job_runs() ->
+    erlcron:set_datetime({{2000,1,1},{8,59,59}}),
+    Self = self(),
+    Ref  = erlcron:daily(mfa_daily, {9, 0, 0}, {erlang, send, [Self, mfa_daily_ran]}),
+    ?assertMatch(1, collect(mfa_daily_ran, 1500, 1)),
+    erlcron:cancel(Ref).
+
+%% A once job whose task is an MFA with arguments runs exactly once.
+mfa_args_once_job_runs() ->
+    erlcron:set_datetime({{2000,1,1},{8,59,59}}),
+    Self = self(),
+    erlcron:at(mfa_once, {9, 0, 0}, {erlang, send, [Self, mfa_once_ran]}),
+    ?assertMatch(1, collect(mfa_once_ran, 1500, 1)).
+
+%% A job scheduled via a Unix cron expression with an MFA+args task runs.
+mfa_args_cron_expr_job_runs() ->
+    erlcron:set_datetime({{2000,1,1},{8,59,59}}),
+    Self = self(),
+    Ref  = erlcron:cron(mfa_cron, "0 9 * * *", {erlang, send, [Self, mfa_cron_ran]}, #{}),
+    ?assertMatch(1, collect(mfa_cron_ran, 1500, 1)),
+    erlcron:cancel(Ref).
+
+%% {M, F, Args} where F does not exist at the given arity is rejected at
+%% scheduling time (not at runtime).
+mfa_args_wrong_arity_rejected() ->
+    ?assertError({wrong_arity_of_job_task, _, _},
+                 erlcron:daily(mfa_bad, {9, 0, 0}, {erlang, nonexistent_fun, [1, 2]})).
 
 %%%===================================================================
 %%% ecrn_agent:run/1 unit tests

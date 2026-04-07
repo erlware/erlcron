@@ -95,7 +95,7 @@ cron_bad_job_spec_test_() ->
                 {bad_return,
                     {{ecrn_app,start,[normal,[]]},
                      {'EXIT',
-                         {{invalid_job_task, one, {erlang, system_time, [1,2,3]}},
+                         {{wrong_arity_of_job_task, one, "erlang:system_time/3"},
                           [_|_]}}}}},
              begin
                  application:set_env(erlcron, crontab, [

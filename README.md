@@ -77,7 +77,8 @@ application:ensure_all_started(erlcron).
 
 ```erlang
 %% Run a function once at 3:30 PM today
-erlcron:cron({{once, {3, 30, pm}}, fun() -> io:fwrite("Hello!~n") end}).
+erlcron:cron({once, {3, 30, pm}}, fun() -> io:fwrite("Hello!~n") end).
+erlcron:cron({once, {3, 30, pm}}, {io, fwrite, ["Hello!~n"]}).
 
 %% Run a function every day at 3:30 PM
 erlcron:daily({3, 30, pm}, fun() -> io:fwrite("Daily reminder~n") end).
@@ -86,10 +87,10 @@ erlcron:daily({3, 30, pm}, fun() -> io:fwrite("Daily reminder~n") end).
 erlcron:at(300, fun() -> io:fwrite("Five minutes later~n") end).
 
 %% Use a standard Unix cron expression (every 5 minutes)
-erlcron:cron({"*/5 * * * *", fun() -> io:fwrite("Every 5 min~n") end}).
+erlcron:cron("*/5 * * * *", fun() -> io:fwrite("Every 5 min~n") end).
 
 %% Cancel a job
-JobRef = erlcron:cron({{daily, {noon}}, fun() -> ok end}),
+JobRef = erlcron:cron({daily, {noon}}, fun() -> ok end),
 erlcron:cancel(JobRef).
 ```
 
@@ -147,13 +148,13 @@ are rejected.
 
 ```erlang
 %% Every 5 minutes
-erlcron:cron({"*/5 * * * *", fun() -> poll() end}).
+erlcron:cron("*/5 * * * *", fun() -> poll() end).
 
 %% Every weekday at 09:30
-erlcron:cron({my_job, {"30 9 * * 1-5", fun() -> standup() end}}).
+erlcron:cron(my_job, {"30 9 * * 1-5", fun() -> standup() end}).
 
 %% Binary form works too
-erlcron:cron({<<"0 18 * * fri">>, fun() -> wrap_up() end}).
+erlcron:cron(~"0 18 * * fri", fun() -> wrap_up() end).
 ```
 
 ---
@@ -412,7 +413,10 @@ supported here.
             {{once, {12, 23, 32}}, {io, fwrite, ["Hello, world!~n"]},
                 #{hostnames => ["somehost"]}},
 
-            %% Recurring daily job
+            %% Recurring daily job to execute.
+            %% Either `my_module:hello_world()` or
+            %% `my_module:hello_world(JobRef, NowTime)`, whichever one
+            %% is exported. 
             {{daily, {every, {23, sec}, {between, {3, pm}, {3, 30, pm}}}},
              {io, fwrite, ["Hello, world!~n"]}},
 

@@ -19,6 +19,7 @@ variables (defaults: 3 restarts in 10 seconds).
 
 %% API
 -export([start_link/0,
+         add_job/1,
          add_job/2,
          add_job/3,
          all_jobs/0,
@@ -39,6 +40,11 @@ start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
 -doc "Add a cron job under supervision (using default cron options).".
+-spec add_job(map()) -> erlcron:job_ref().
+add_job(Job = #{id := JobRef}) ->
+    add_job(JobRef, Job, #{}).
+
+-doc "Add a cron job under supervision (using default cron options).".
 -spec add_job(erlcron:job_ref(), erlcron:job()) -> erlcron:job_ref().
 add_job(JobRef, Job) ->
     add_job(JobRef, Job, #{}).
@@ -53,18 +59,18 @@ Returns `ignored` when the job is excluded by hostname restrictions.
 -spec add_job(erlcron:job_ref(), erlcron:job(), erlcron:cron_opts()) ->
     erlcron:job_ref() | ignored | already_started | {error, term()}.
 add_job(JobRef, Job = #{}, CronOpts) when is_map(CronOpts) ->
-    {{_When, _Task} = JobSpec, JobOpts} = parse_job(Job),
-    add_job2(JobRef, JobSpec, check_opts(JobRef, maps:merge(CronOpts, JobOpts)));
-add_job(JobRef, Job = {_, _Task}, CronOpts) when is_map(CronOpts) ->
-    add_job2(JobRef, Job, check_opts(JobRef, CronOpts));
+    {When, Task, JobOpts} = parse_job(Job),
+    add_job2(JobRef, When, Task, check_opts(JobRef, maps:merge(CronOpts, JobOpts)));
+add_job(JobRef, {When, Task}, CronOpts) when is_map(CronOpts) ->
+    add_job2(JobRef, When, Task, check_opts(JobRef, CronOpts));
 add_job(JobRef, {When, Task, JobOpts}, CronOpts) when is_map(JobOpts) ->
-    add_job2(JobRef, {When, Task}, check_opts(JobRef, maps:merge(CronOpts, JobOpts))).
+    add_job2(JobRef, When, Task, check_opts(JobRef, maps:merge(CronOpts, JobOpts))).
 
-add_job2(JobRef, {Schedule, Task}, Opts) ->
+add_job2(JobRef, Schedule, Task, Opts) when is_reference(JobRef); is_atom(JobRef); is_binary(JobRef) ->
     maybe
         true        ?= check_host(Opts),
-        Fun          = check_task(JobRef, Task),
         {ok, Sched} ?= ecrn_util:parse_schedule(Schedule),
+        Fun          = check_task(JobRef, Task),
         {ok, _}     ?= supervisor:start_child(?SERVER, [JobRef, {Sched, Task}, Fun, Opts]),
         JobRef
     else
@@ -92,7 +98,7 @@ parse_job(Job) ->
     %% but prefer 'schedule' and 'task' as more descriptive option names.
     {When, Opts1} = get_opt([schedule, interval], Job),
     {Fun,  Opts2} = get_opt([task,     execute],  Opts1),
-    {{When, Fun}, Opts2}.
+    {When, Fun, Opts2}.
 
 -doc "Return PIDs of all currently supervised job processes.".
 -spec all_jobs() -> [pid()].
@@ -166,9 +172,11 @@ check_host(Opts) ->
     end.
 
 check_task(JobRef, {M, F}) when is_atom(M), is_atom(F) ->
-    check_exists(JobRef, {M, F, [0,2]});
+    check_exists(JobRef, {M, F, [0,2]}, callback);
 check_task(JobRef, {M, F, []}) when is_atom(M), is_atom(F) ->
-    check_exists(JobRef, {M, F, [0]});
+    check_exists(JobRef, {M, F, [0]}, callback);
+check_task(JobRef, {M, F, A}) when is_atom(M), is_atom(F), is_list(A) ->
+    check_exists(JobRef, {M, F, [length(A)]}, A);
 check_task(_, Task) when is_function(Task, 0) ->
     Task;
 check_task(_, Task) when is_function(Task, 2) ->
@@ -176,7 +184,7 @@ check_task(_, Task) when is_function(Task, 2) ->
 check_task(JobRef, Task) ->
     erlang:error({invalid_job_task, JobRef, Task}).
 
-check_exists(JobRef, {M,F,Arities} = Task) ->
+check_exists(JobRef, {M,F,Arities} = Task, Args) ->
     case erlang:module_loaded(M) of
         false ->
             case code:ensure_loaded(M) of
@@ -188,14 +196,15 @@ check_exists(JobRef, {M,F,Arities} = Task) ->
         true ->
             ok
     end,
-    check_arity(JobRef, M, F, Arities).
+    check_arity(JobRef, M, F, Arities, Args).
 
-check_arity(JobRef, M, F, Arities) ->
+check_arity(JobRef, M, F, Arities, Args) ->
     {module, M} == code:ensure_loaded(M)
         orelse erlang:error({job_task_module_not_loaded, JobRef, M}),
     case lists:dropwhile(fun(Arity) -> not erlang:function_exported(M,F,Arity) end, Arities) of
-        []    -> erlang:error({wrong_arity_of_job_task, JobRef, report_arity(M,F,Arities)});
-        [A|_] -> fun M:F/A
+        [A|_] when Args == callback; Args == [] -> fun M:F/A;
+        [_|_] when is_list(Args)                -> fun() -> apply(M, F, Args) end;
+        [] -> erlang:error({wrong_arity_of_job_task, JobRef, report_arity(M,F,Arities)})
     end.
 
 report_arity(M, F, [A]) ->
