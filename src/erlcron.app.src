@@ -5,5 +5,5 @@
               {registered,[ecrn_agent]},
               {applications,[kernel,stdlib]},
               {mod,{ecrn_app,[]}},
-              {licenses,["BSD"]},
+              {licenses,["BSD-3-Clause"]},
               {links,[{"Github","https://github.com/erlware/erlcron"}]}]}.
