@@ -1,11 +1,10 @@
-Erlcron
-=======
+![Emmap](assets/erlcron-banner.png)
 
 [![Build Status](https://github.com/erlware/erlcron/actions/workflows/ci.yml/badge.svg)](https://github.com/erlware/erlcron/actions/workflows/ci.yml)
 [![Hex pm](https://img.shields.io/hexpm/v/erlcron.svg)](https://hex.pm/packages/erlcron)
 [![Docs](https://img.shields.io/badge/hex-docs-green.svg?style=flat)](https://hexdocs.pm/erlcron)
 
-Erlcron is a cron-like job scheduler for Erlang applications. It is designed to
+`erlcron` is a cron-like job scheduler for Erlang applications. It is designed to
 be testable: the system clock can be arbitrarily set and fast-forwarded, making
 it easy to verify time-based behaviour in automated tests.
 
