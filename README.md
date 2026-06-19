@@ -1,4 +1,4 @@
-![Erlcron](assets/erlcron-banner.png)
+![Erlcron](https://github.com/erlware/erlcron/blob/master/assets/erlcron-banner.png?raw=true)
 
 [![Build Status](https://github.com/erlware/erlcron/actions/workflows/ci.yml/badge.svg)](https://github.com/erlware/erlcron/actions/workflows/ci.yml)
 [![Hex pm](https://img.shields.io/hexpm/v/erlcron.svg)](https://hex.pm/packages/erlcron)
