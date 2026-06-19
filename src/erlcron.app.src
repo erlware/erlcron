@@ -1,9 +1,14 @@
-{application,erlcron,
-             [{description,"Scheduled execution of Erlang functions"},
-              {vsn,"1.3.7"},
-              {modules,[]},
-              {registered,[ecrn_agent]},
-              {applications,[kernel,stdlib]},
-              {mod,{ecrn_app,[]}},
-              {licenses,["BSD-3-Clause"]},
-              {links,[{"Github","https://github.com/erlware/erlcron"}]}]}.
+{application,erlcron, [
+  {description,"Scheduled execution of Erlang functions"},
+  {vsn,"1.3.7"},
+  {modules,[]},
+  {registered,[ecrn_agent]},
+  {applications,[kernel,stdlib]},
+  {mod,{ecrn_app,[]}},
+  {licenses,["BSD-3-Clause"]},
+  {links,[{"Github","https://github.com/erlware/erlcron"}]},
+  {files,    [
+    "src", "include", "Makefile", "rebar.config", "rebar.lock",
+    "README.md", "LICENSE", "assets"
+  ]}
+]}.
