@@ -26,26 +26,33 @@ it easy to verify time-based behaviour in automated tests.
 
 ## Table of Contents
 
-1. [Installation](#installation)
-2. [Quick Start](#quick-start)
-3. [Schedule Syntax](#schedule-syntax)
-   - [Unix cron expressions](#unix-cron-expressions)
-   - [once](#once)
-   - [Period](#period)
-   - [daily](#daily)
-   - [weekly](#weekly)
-   - [monthly](#monthly)
-4. [Callable Forms](#callable-forms)
-5. [Job Options](#job-options)
-6. [API Reference](#api-reference)
-7. [Application Configuration](#application-configuration)
-8. [Testing with Time Manipulation](#testing-with-time-manipulation)
+- [Table of Contents](#table-of-contents)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Schedule Syntax](#schedule-syntax)
+  - [Unix cron expressions](#unix-cron-expressions)
+  - [Time Literals (Duration)](#time-literals-duration)
+  - [`once`](#once)
+  - [Period](#period)
+  - [`daily`](#daily)
+  - [`weekly`](#weekly)
+  - [`monthly`](#monthly)
+- [Callable Forms](#callable-forms)
+- [Job Options](#job-options)
+- [API Reference](#api-reference)
+  - [Scheduling jobs](#scheduling-jobs)
+  - [Managing jobs](#managing-jobs)
+  - [Time functions](#time-functions)
+  - [Time manipulation (for testing)](#time-manipulation-for-testing)
+  - [Named job references](#named-job-references)
+- [Application Configuration](#application-configuration)
+- [Testing with Time Manipulation](#testing-with-time-manipulation)
 
 ---
 
 ## Installation
 
-For Elixir, add the following to `mix.exs` dependencies: 
+For Elixir, add the following to `mix.exs` dependencies:
 ```elixir
 {:erlcron, "~> 1.0"}
 ```
@@ -120,10 +127,13 @@ Supported field syntax:
 | Syntax | Meaning |
 |--------|---------|
 | `*` | every value |
+| `?` | unspecified (`*` in DOM/DOW) |
 | `N` | specific value |
 | `*/N` | every N steps |
 | `N-M` | inclusive range |
 | `a,b,c` | list of values |
+| `L` | last day of month (DOM only) |
+| `L-N` | N days before last day (DOM only) |
 
 Examples and their equivalent erlcron specs:
 
@@ -137,13 +147,22 @@ Examples and their equivalent erlcron specs:
 | `"0,30 9 * * *"` | `{daily, [{9,0,0}, {9,30,0}]}` |
 | `"0 9 * * 1"` | `{weekly, mon, {9, 0, 0}}` |
 | `"0 9 * * 1,3"` | `{weekly, [mon,wed], {9, 0, 0}}` |
+| "0 9 ? * 1" | `{weekly, mon, {9, 0, 0}}` |
 | `"0 9 1 * *"` | `{monthly, 1, {9, 0, 0}}` |
 | `"0 9 1,15 * *"` | `{monthly, [1,15], {9, 0, 0}}` |
+| "0 9 1 * ?" | `{monthly, 1, {9, 0, 0}}` |
+| "0 9 L * *" | `{monthly, 0, {9, 0, 0}}` |
+| "0 9 L-3 * *" | `{monthly, -3, {9, 0, 0}}` |
 
 The expression is parsed at job-submission time by `ecrn_util:from_cron/1`.
 Both `string()` and `binary()` inputs are accepted.
 Expressions that specify both day-of-month and day-of-week simultaneously
 are rejected.
+
+Extended tokens that cannot be represented by current erlcron primitives are rejected:
+- day-of-month `W` (nearest weekday)
+- day-of-week `#` (nth weekday in month)
+- day-of-week `L` (last weekday in month)
 
 ```erlang
 %% Every 5 minutes
@@ -151,6 +170,9 @@ erlcron:cron("*/5 * * * *", fun() -> poll() end).
 
 %% Every weekday at 09:30
 erlcron:cron(my_job, {"30 9 * * 1-5", fun() -> standup() end}).
+
+%% Last day of month at 09:00
+erlcron:cron(my_job, {"0 9 L * *", fun() -> month_end() end}).
 
 %% Binary form works too
 erlcron:cron(~"0 18 * * fri", fun() -> wrap_up() end).
@@ -415,7 +437,7 @@ supported here.
             %% Recurring daily job to execute.
             %% Either `my_module:hello_world()` or
             %% `my_module:hello_world(JobRef, NowTime)`, whichever one
-            %% is exported. 
+            %% is exported.
             {{daily, {every, {23, sec}, {between, {3, pm}, {3, 30, pm}}}},
              {io, fwrite, ["Hello, world!~n"]}},
 

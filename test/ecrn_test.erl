@@ -372,13 +372,21 @@ from_cron_test_() ->
      ?FuncTest(from_cron_monthly_single_dom),
      ?FuncTest(from_cron_monthly_multiple_doms),
      ?FuncTest(from_cron_month_field_ignored),
+     ?FuncTest(from_cron_question_mark_dom),
+     ?FuncTest(from_cron_question_mark_dow),
+     ?FuncTest(from_cron_monthly_last_day),
+     ?FuncTest(from_cron_monthly_days_before_last_day),
      ?FuncTest(from_cron_minute_range),
      ?FuncTest(from_cron_dom_range),
      ?FuncTest(from_cron_binary_input),
      ?FuncTest(from_cron_error_five_fields),
      ?FuncTest(from_cron_error_dom_and_dow),
      ?FuncTest(from_cron_error_out_of_range_minute),
-     ?FuncTest(from_cron_error_bad_dow)].
+     ?FuncTest(from_cron_error_bad_dow),
+     ?FuncTest(from_cron_error_dom_w),
+     ?FuncTest(from_cron_error_dom_l_minus_bad),
+     ?FuncTest(from_cron_error_dow_hash),
+     ?FuncTest(from_cron_error_dow_l)].
 
 %% * * * * *  →  {daily, {every, {1, min}}}
 from_cron_every_minute() ->
@@ -445,6 +453,26 @@ from_cron_month_field_ignored() ->
     ?assertEqual({ok, {monthly, 1, {9, 0, 0}}},
                  ecrn_util:from_cron("0 9 1 6 *")).
 
+%% ? in DOM means unspecified (equivalent to *)
+from_cron_question_mark_dom() ->
+    ?assertEqual({ok, {weekly, mon, {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 ? * 1")).
+
+%% ? in DOW means unspecified (equivalent to *)
+from_cron_question_mark_dow() ->
+    ?assertEqual({ok, {monthly, 1, {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 1 * ?")).
+
+%% L in DOM maps to last day of month (erlcron monthly day 0)
+from_cron_monthly_last_day() ->
+    ?assertEqual({ok, {monthly, 0, {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 L * *")).
+
+%% L-N in DOM maps to N days before last day of month (erlcron monthly day -N)
+from_cron_monthly_days_before_last_day() ->
+    ?assertEqual({ok, {monthly, -3, {9, 0, 0}}},
+                 ecrn_util:from_cron("0 9 L-3 * *")).
+
 %% Minute range: 0-5 expands to [0,1,2,3,4,5] crossed with hour 9 → list
 from_cron_minute_range() ->
     {ok, {daily, Times}} = ecrn_util:from_cron("0-5 9 * * *"),
@@ -476,6 +504,22 @@ from_cron_error_out_of_range_minute() ->
 %% Unrecognised day-of-week token
 from_cron_error_bad_dow() ->
     ?assertMatch({error, _}, ecrn_util:from_cron("0 9 * * funday")).
+
+%% W in DOM cannot be represented by current erlcron primitives
+from_cron_error_dom_w() ->
+    ?assertMatch({error, _}, ecrn_util:from_cron("0 9 15W * *")).
+
+%% Invalid L-N in DOM is rejected
+from_cron_error_dom_l_minus_bad() ->
+    ?assertMatch({error, _}, ecrn_util:from_cron("0 9 L-x * *")).
+
+%% # in DOW cannot be represented by current erlcron primitives
+from_cron_error_dow_hash() ->
+    ?assertMatch({error, _}, ecrn_util:from_cron("0 9 * * 2#1")).
+
+%% L in DOW cannot be represented by current erlcron primitives
+from_cron_error_dow_l() ->
+    ?assertMatch({error, _}, ecrn_util:from_cron("0 9 * * 5L")).
 
 %%%===================================================================
 %%% parse_schedule/1 unit tests (no application required)

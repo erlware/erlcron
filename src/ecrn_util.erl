@@ -106,10 +106,13 @@ Returns `{ok, Schedule}` on success or `{error, Reason}` on failure.
 | Syntax   | Meaning               |
 |----------|-----------------------|
 | `*`      | every value           |
+| `?`      | unspecified (`*` in DOM/DOW) |
 | `N`      | specific value        |
 | `*/N`    | every N steps         |
 | `N-M`    | inclusive range       |
 | `a,b,c`  | list of values        |
+| `L`      | last day of month (DOM only) |
+| `L-N`    | N days before last day (DOM only) |
 
 ## Supported schedule shapes and the erlcron spec they produce
 
@@ -128,6 +131,11 @@ Returns `{ok, Schedule}` on success or `{error, Reason}` on failure.
 
 Note: the month field is accepted but ignored (erlcron has no month-level scope).
 Expressions specifying both DOM and DOW simultaneously are rejected.
+
+Extended tokens that cannot be represented with current erlcron primitives are rejected:
+- day-of-month `W` (nearest weekday)
+- day-of-week `#` (nth weekday in month)
+- day-of-week `L` (last weekday in month)
 
 The month field is accepted but ignored (erlcron has no month-level scope).
 Expressions specifying both DOM and DOW simultaneously are rejected.
@@ -148,7 +156,7 @@ from_cron(Expr) when is_list(Expr) ->
     case string:tokens(Expr, " \t\n\r") of
         [MinS, HourS, DomS, _MonthS, DowS] ->
             case cron_build_period(MinS, HourS) of
-                {ok, Period} -> cron_build_scope(DomS, DowS, Period);
+                {ok, Period} -> cron_build_scope(cron_normalize_dom(DomS), cron_normalize_dow(DowS), Period);
                 Err -> Err
             end;
         _ ->
@@ -196,12 +204,16 @@ cron_build_period(MinS, HourS) ->
 cron_build_scope("*", "*", Period) ->
     {ok, {daily, Period}};
 cron_build_scope("*", DowS, Period) ->
-    case cron_parse_dow(DowS) of
-        {ok, Dow} -> {ok, {weekly, Dow, Period}};
+    case cron_reject_unsupported_dow_tokens(DowS) of
+        ok ->
+            case cron_parse_dow(DowS) of
+                {ok, Dow} -> {ok, {weekly, Dow, Period}};
+                Err -> Err
+            end;
         Err -> Err
     end;
 cron_build_scope(DomS, "*", Period) ->
-    case cron_parse_field(DomS, 1, 31) of
+    case cron_parse_dom_field(DomS) of
         {ok, Doms} ->
             Dom = case Doms of [D] -> D; Ds -> Ds end,
             {ok, {monthly, Dom, Period}};
@@ -222,6 +234,31 @@ cron_parse_field("*/" ++ Step, Lo, Hi) ->
 cron_parse_field(Expr, Lo, Hi) ->
     Parts = string:split(Expr, ",", all),
     cron_parse_field_parts(Parts, Lo, Hi, []).
+
+cron_parse_dom_field(Expr) ->
+    Parts = string:split(Expr, ",", all),
+    cron_parse_dom_parts(Parts, []).
+
+cron_parse_dom_parts([], Acc) ->
+    {ok, lists:usort(Acc)};
+cron_parse_dom_parts([Part | Rest], Acc) ->
+    case cron_parse_dom_part(Part) of
+        {ok, Vals} -> cron_parse_dom_parts(Rest, Acc ++ Vals);
+        Err -> Err
+    end.
+
+cron_parse_dom_part("L") ->
+    {ok, [0]};
+cron_parse_dom_part("L-" ++ N) ->
+    case cron_parse_non_neg_int(N) of
+        {ok, V} -> {ok, [-V]};
+        _ -> {error, "Expected a non-negative integer in day-of-month L-N syntax, got: " ++ N}
+    end;
+cron_parse_dom_part(Expr) ->
+    case string:find(Expr, "W") of
+        nomatch -> cron_parse_field_part(Expr, 1, 31);
+        _ -> {error, "Day-of-month 'W' syntax is not supported by erlcron schedule primitives: " ++ Expr}
+    end.
 
 cron_parse_field_parts([], _Lo, _Hi, Acc) ->
     {ok, lists:usort(Acc)};
@@ -257,6 +294,16 @@ cron_parse_dow(Expr) ->
     Parts = string:split(Expr, ",", all),
     cron_parse_dow_parts(Parts, []).
 
+cron_reject_unsupported_dow_tokens(Expr) ->
+    case string:find(Expr, "#") of
+        nomatch ->
+            case string:find(Expr, "L") of
+                nomatch -> ok;
+                _ -> {error, "Day-of-week 'L' syntax is not supported by erlcron schedule primitives: " ++ Expr}
+            end;
+        _ -> {error, "Day-of-week '#' syntax is not supported by erlcron schedule primitives: " ++ Expr}
+    end.
+
 cron_parse_dow_parts([], []) ->
     {error, "Empty day-of-week field"};
 cron_parse_dow_parts([], [Day]) ->
@@ -285,6 +332,14 @@ cron_day_of_week("thu") -> {ok, thu};
 cron_day_of_week("fri") -> {ok, fri};
 cron_day_of_week("sat") -> {ok, sat};
 cron_day_of_week(_)     -> error.
+
+%% --- Field normalization -----------------------------------------------
+
+cron_normalize_dom("?") -> "*";
+cron_normalize_dom(DomS) -> DomS.
+
+cron_normalize_dow("?") -> "*";
+cron_normalize_dow(DowS) -> DowS.
 
 %% --- Integer helpers ---------------------------------------------------
 
